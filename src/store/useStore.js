@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { userStorage } from './userStorage';
 
 // Sample demo games with real full PGNs for instant exploration
 const demoGamesData = [
@@ -114,43 +115,53 @@ function computeFocus(weaknesses) {
   return topItem ? `${topItem.name}` : 'Tactical Fork Recognition & Pawn Structure Decisions';
 }
 
-export const useStore = create((set, get) => ({
+const loadState = () => ({
   // Connected chess account
-  account: JSON.parse(localStorage.getItem('chessmind_account') || 'null'),
-  profile: JSON.parse(localStorage.getItem('chessmind_profile') || 'null'),
-  stats: JSON.parse(localStorage.getItem('chessmind_stats') || 'null'),
+  account: JSON.parse(userStorage.getItem('chessmind_account') || 'null'),
+  profile: JSON.parse(userStorage.getItem('chessmind_profile') || 'null'),
+  stats: JSON.parse(userStorage.getItem('chessmind_stats') || 'null'),
 
   // Games
-  games: JSON.parse(localStorage.getItem('chessmind_games') || JSON.stringify(demoGamesData)),
+  games: JSON.parse(userStorage.getItem('chessmind_games') || '[]'),
   gamesLoading: false,
 
   // Weakness profile & Adaptive Learning Loop
-  weaknesses: JSON.parse(localStorage.getItem('chessmind_weaknesses') || JSON.stringify(initialWeaknesses)),
-  trainingHistory: JSON.parse(localStorage.getItem('chessmind_training_history') || '[]'),
-  currentFocus: localStorage.getItem('chessmind_current_focus') || 'Tactical Fork Recognition & Pawn Structure Decisions',
+  weaknesses: JSON.parse(userStorage.getItem('chessmind_weaknesses') || JSON.stringify(initialWeaknesses)),
+  trainingHistory: JSON.parse(userStorage.getItem('chessmind_training_history') || '[]'),
+  currentFocus: userStorage.getItem('chessmind_current_focus') || 'Tactical Fork Recognition & Pawn Structure Decisions',
+
+  // Spaced-repetition review queue: { id, exercise, dueAt, step }
+  reviewQueue: JSON.parse(userStorage.getItem('chessmind_review') || '[]'),
 
   // UI state
   sidebarOpen: false,
-  toasts: [],
+  toasts: []
+});
+
+export const useStore = create((set, get) => ({
+  ...loadState(),
+
+  // Reload everything from the current user's storage (called on sign-in / sign-out).
+  hydrate: () => set({ ...loadState(), toasts: [], sidebarOpen: false }),
 
   // Actions
   setAccount: (account) => {
-    localStorage.setItem('chessmind_account', JSON.stringify(account));
+    userStorage.setItem('chessmind_account', JSON.stringify(account));
     set({ account });
   },
 
   setProfile: (profile) => {
-    localStorage.setItem('chessmind_profile', JSON.stringify(profile));
+    userStorage.setItem('chessmind_profile', JSON.stringify(profile));
     set({ profile });
   },
 
   setStats: (stats) => {
-    localStorage.setItem('chessmind_stats', JSON.stringify(stats));
+    userStorage.setItem('chessmind_stats', JSON.stringify(stats));
     set({ stats });
   },
 
   setGames: (games) => {
-    localStorage.setItem('chessmind_games', JSON.stringify(games));
+    userStorage.setItem('chessmind_games', JSON.stringify(games));
     set({ games });
   },
 
@@ -159,7 +170,7 @@ export const useStore = create((set, get) => ({
     const existingIds = new Set(existing.map(g => g.platform_game_id));
     const unique = newGames.filter(g => !existingIds.has(g.platform_game_id));
     const updated = [...unique, ...existing];
-    localStorage.setItem('chessmind_games', JSON.stringify(updated));
+    userStorage.setItem('chessmind_games', JSON.stringify(updated));
     set({ games: updated });
   },
 
@@ -191,7 +202,7 @@ export const useStore = create((set, get) => ({
     };
 
     const updatedHistory = [newEntry, ...trainingHistory];
-    localStorage.setItem('chessmind_training_history', JSON.stringify(updatedHistory));
+    userStorage.setItem('chessmind_training_history', JSON.stringify(updatedHistory));
 
     // Update weakness scoring if correct
     const themeLower = (record.theme || '').toLowerCase();
@@ -229,8 +240,8 @@ export const useStore = create((set, get) => ({
 
     const newFocus = computeFocus(updatedWeaknesses);
 
-    localStorage.setItem('chessmind_weaknesses', JSON.stringify(updatedWeaknesses));
-    localStorage.setItem('chessmind_current_focus', newFocus);
+    userStorage.setItem('chessmind_weaknesses', JSON.stringify(updatedWeaknesses));
+    userStorage.setItem('chessmind_current_focus', newFocus);
 
     set({
       trainingHistory: updatedHistory,
@@ -251,7 +262,7 @@ export const useStore = create((set, get) => ({
       }
       return g;
     });
-    localStorage.setItem('chessmind_games', JSON.stringify(updatedGames));
+    userStorage.setItem('chessmind_games', JSON.stringify(updatedGames));
 
     // Aggregate mistakes into weakness categories
     const updatedWeaknesses = { ...weaknesses };
@@ -279,8 +290,8 @@ export const useStore = create((set, get) => ({
 
     const newFocus = computeFocus(updatedWeaknesses);
 
-    localStorage.setItem('chessmind_weaknesses', JSON.stringify(updatedWeaknesses));
-    localStorage.setItem('chessmind_current_focus', newFocus);
+    userStorage.setItem('chessmind_weaknesses', JSON.stringify(updatedWeaknesses));
+    userStorage.setItem('chessmind_current_focus', newFocus);
 
     set({
       games: updatedGames,
@@ -303,11 +314,11 @@ export const useStore = create((set, get) => ({
       blitz: { rating: 1480, best: 1510, wins: 88, losses: 74, draws: 12 },
     };
 
-    localStorage.setItem('chessmind_account', JSON.stringify(demoAccount));
-    localStorage.setItem('chessmind_profile', JSON.stringify(demoProfile));
-    localStorage.setItem('chessmind_stats', JSON.stringify(demoStats));
-    localStorage.setItem('chessmind_games', JSON.stringify(demoGamesData));
-    localStorage.setItem('chessmind_weaknesses', JSON.stringify(initialWeaknesses));
+    userStorage.setItem('chessmind_account', JSON.stringify(demoAccount));
+    userStorage.setItem('chessmind_profile', JSON.stringify(demoProfile));
+    userStorage.setItem('chessmind_stats', JSON.stringify(demoStats));
+    userStorage.setItem('chessmind_games', JSON.stringify(demoGamesData));
+    userStorage.setItem('chessmind_weaknesses', JSON.stringify(initialWeaknesses));
 
     set({
       account: demoAccount,
@@ -319,14 +330,56 @@ export const useStore = create((set, get) => ({
     });
   },
 
+  // Disconnect removes the profile together with its imported games, analysis and mistakes.
   disconnect: () => {
-    localStorage.removeItem('chessmind_account');
-    localStorage.removeItem('chessmind_profile');
-    localStorage.removeItem('chessmind_stats');
+    ['account', 'profile', 'stats', 'games', 'weaknesses', 'training_history', 'current_focus', 'review']
+      .forEach(k => userStorage.removeItem(`chessmind_${k}`));
     set({
       account: null,
       profile: null,
       stats: null,
+      games: [],
+      weaknesses: initialWeaknesses,
+      trainingHistory: [],
+      reviewQueue: [],
+      currentFocus: 'Tactical Fork Recognition & Pawn Structure Decisions',
     });
+  },
+
+  resetAll: () => {
+    get().disconnect();
+  },
+
+  // Review queue: first-try correct schedules a later review; correct after a miss gets a harder
+  // (shorter) grade; revealing the answer brings the position back soon.
+  gradeReview: (exercise, grade) => {
+    const DAY = 86400000;
+    const intervals = [1, 3, 7, 14, 30];
+    const queue = get().reviewQueue;
+    const existing = queue.find(q => q.id === exercise.id);
+    let step = existing?.step ?? 0;
+    let dueAt;
+    if (grade === 'first') {
+      step = Math.min(step + 1, intervals.length - 1);
+      dueAt = Date.now() + intervals[step] * DAY;
+    } else if (grade === 'late') {
+      step = Math.max(step - 1, 0);
+      dueAt = Date.now() + intervals[step] * DAY * 0.5;
+    } else {
+      step = 0;
+      dueAt = Date.now() + 10 * 60 * 1000;
+    }
+    const item = { id: exercise.id, exercise, dueAt, step };
+    const next = existing ? queue.map(q => (q.id === exercise.id ? item : q)) : [...queue, item];
+    userStorage.setItem('chessmind_review', JSON.stringify(next));
+    set({ reviewQueue: next });
+  },
+
+  addReviewItem: (exercise) => {
+    const queue = get().reviewQueue;
+    if (queue.some(q => q.id === exercise.id)) return;
+    const next = [...queue, { id: exercise.id, exercise, dueAt: Date.now(), step: 0 }];
+    userStorage.setItem('chessmind_review', JSON.stringify(next));
+    set({ reviewQueue: next });
   },
 }));

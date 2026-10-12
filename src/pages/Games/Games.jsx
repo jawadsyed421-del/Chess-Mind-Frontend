@@ -21,6 +21,10 @@ export default function Games() {
 
   const [search, setSearch] = useState('');
   const [filterResult, setFilterResult] = useState('all');
+  const [filterColor, setFilterColor] = useState('all');
+  const [filterPlatform, setFilterPlatform] = useState('all');
+  const [filterTc, setFilterTc] = useState('all');
+  const timeControls = [...new Set(games.map(g => g.time_control).filter(Boolean))];
   const [refreshing, setRefreshing] = useState(false);
 
   async function handleRefreshGames() {
@@ -43,7 +47,10 @@ export default function Games() {
       (g.opening_name || '').toLowerCase().includes(search.toLowerCase());
     const matchesResult =
       filterResult === 'all' ? true : g.result === filterResult;
-    return matchesSearch && matchesResult;
+    return matchesSearch && matchesResult
+      && (filterColor === 'all' || g.player_color === filterColor)
+      && (filterPlatform === 'all' || g.platform === filterPlatform)
+      && (filterTc === 'all' || g.time_control === filterTc);
   });
 
   if (!account && games.length === 0) {
@@ -124,6 +131,18 @@ export default function Games() {
               </button>
             ))}
           </div>
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap', marginTop: 'var(--space-md)' }}>
+          <select className="input" style={{ maxWidth: 160 }} value={filterColor} onChange={e => setFilterColor(e.target.value)}>
+            <option value="all">Any colour</option><option value="white">White</option><option value="black">Black</option>
+          </select>
+          <select className="input" style={{ maxWidth: 160 }} value={filterPlatform} onChange={e => setFilterPlatform(e.target.value)}>
+            <option value="all">All platforms</option><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option>
+          </select>
+          <select className="input" style={{ maxWidth: 160 }} value={filterTc} onChange={e => setFilterTc(e.target.value)}>
+            <option value="all">Any time control</option>
+            {timeControls.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
         </div>
       </div>
 

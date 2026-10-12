@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
+import { userStorage } from '../../store/userStorage';
 import { Chess } from 'chess.js';
 import InteractiveBoard from '../../components/Chessboard/InteractiveBoard';
 import api from '../../services/api';
@@ -96,7 +97,7 @@ export default function GameAnalysis() {
       setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
 
       // Check if analysis already exists in localStorage cache
-      const cached = localStorage.getItem(`chessmind_analysis_${gameData.platform_game_id}`);
+      const cached = userStorage.getItem(`chessmind_analysis_${gameData.platform_game_id}`);
       if (cached) {
         try {
           const parsed = JSON.parse(cached);
@@ -148,7 +149,7 @@ export default function GameAnalysis() {
       );
 
       applyAnalysisResult(result);
-      localStorage.setItem(`chessmind_analysis_${gameData.platform_game_id}`, JSON.stringify(result));
+      userStorage.setItem(`chessmind_analysis_${gameData.platform_game_id}`, JSON.stringify(result));
       if (saveGameAnalysis) {
         saveGameAnalysis(gameData.platform_game_id, result?.analysis || result);
       }

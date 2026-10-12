@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import InteractiveBoard from '../../components/Chessboard/InteractiveBoard';
 import { useStore } from '../../store/useStore';
+import { sampleExercises } from '../../data/exercises';
 import {
   Target,
   CheckCircle2,
@@ -15,68 +16,12 @@ import {
   GraduationCap
 } from 'lucide-react';
 
-// Curated practice positions for personalized training across all themes
-const sampleExercises = [
-  {
-    id: 'fork-1',
-    theme: 'Fork',
-    type: 'tactical',
-    fen: 'r1bqk2r/pppp1ppp/2n5/4p3/2B1n3/2P2N2/PPP2PPP/R1BQK2R w KQkq - 0 6',
-    instruction: 'White to move. Capitalize on Black\'s unprotected knight and vulnerable pawn structure.',
-    solutionSan: 'Qd5',
-    explanation: 'Qd5 creates a double attack (fork) on the knight on e4 and threatens checkmate on f7!',
-  },
-  {
-    id: 'pin-1',
-    theme: 'Pin',
-    type: 'tactical',
-    fen: 'r1b1k2r/ppp2ppp/2n1pq2/8/1b1PP3/2N2N2/PPP3PP/R1BQKB1R w KQkq - 1 7',
-    instruction: 'White to move. Neutralize the pin and maintain central pawn security.',
-    solutionSan: 'Bg5',
-    explanation: 'Bg5 attacks Black\'s queen, seizing the initiative and dissolving Black\'s pressure.',
-  },
-  {
-    id: 'hanging-1',
-    theme: 'Hanging Pieces',
-    type: 'tactical',
-    fen: 'r1bq1rk1/ppp2ppp/2np1n2/4p3/1b2P3/2NP1N2/PPPBBPPP/R2QK2R w KQ - 0 7',
-    instruction: 'White to move. Black left their b4 bishop vulnerable after knight repositioning.',
-    solutionSan: 'Nd5',
-    explanation: 'Nd5 challenges the bishop and activates the knight into the center.',
-  },
-  {
-    id: 'weak-sq-1',
-    theme: 'Weak Squares',
-    type: 'positional',
-    fen: 'r1bq1rk1/pp2bppp/2n1pn2/3p4/2PP4/2N2NP1/PP2BP1P/R1BQ1RK1 w - - 0 9',
-    instruction: 'White to move. Establish outposts and fight for central square control.',
-    solutionSan: 'c5',
-    explanation: 'c5 fixes Black\'s queenside structure and clamps down on the b6 square.',
-  },
-  {
-    id: 'pawn-struct-1',
-    theme: 'Pawn Structures',
-    type: 'positional',
-    fen: 'r1b2rk1/pp1n1ppp/4p3/3pP3/1b1P4/1P1B1N2/P2B1PPP/R3K2R w KQ - 0 13',
-    instruction: 'White to move. Remove Black\'s defender and control the dark-squared blockade.',
-    solutionSan: 'Bxb4',
-    explanation: 'Bxb4 trades off the annoying active bishop and seals White\'s grip over the weak c5/d4 pawn chain.',
-  },
-  {
-    id: 'coordination-1',
-    theme: 'Piece Coordination',
-    type: 'strategic',
-    fen: '2r2rk1/1p1b1ppp/pq1ppb2/8/2PNPP2/1PN5/P2Q2PP/3R1R1K w - - 0 18',
-    instruction: 'White to move. Regroup pieces to coordinate against Black\'s kingside weaknesses.',
-    solutionSan: 'Ne2',
-    explanation: 'Ne2 regroups to support central pawn pushes while defending the key d4 sector.',
-  }
-];
 
 export default function Training() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { recordTrainingAttempt, currentFocus, addToast } = useStore();
+  const { recordTrainingAttempt, gradeReview, addReviewItem, addToast } = useStore();
+  const [missed, setMissed] = useState(false);
 
   const customFen = searchParams.get('fen');
   const customBetterMove = searchParams.get('betterMove');
@@ -127,6 +72,7 @@ export default function Training() {
     });
 
     if (isCorrect) {
+      gradeReview(currentExercise, missed ? 'late' : 'first');
       setStatus('correct');
       setFeedback({
         title: 'Spot on! That is the best move.',
@@ -134,6 +80,8 @@ export default function Training() {
       });
       addToast({ type: 'success', message: 'Correct move! Profile updated.' });
     } else {
+      setMissed(true);
+      addReviewItem(currentExercise);
       setStatus('incorrect');
       setFeedback({
         title: 'Not quite the optimal continuation.',
@@ -145,6 +93,7 @@ export default function Training() {
   function handleNextExercise() {
     if (currentExerciseIndex < exerciseList.length - 1) {
       setCurrentExerciseIndex(prev => prev + 1);
+      setMissed(false);
       setStatus('thinking');
       setFeedback(null);
     } else {
@@ -270,6 +219,7 @@ export default function Training() {
                 <button
                   className="btn btn-secondary w-full"
                   onClick={() => {
+                    gradeReview(currentExercise, 'revealed');
                     setStatus('correct');
                     setFeedback({
                       title: 'Solution Revealed',

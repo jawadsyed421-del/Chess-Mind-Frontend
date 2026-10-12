@@ -2,6 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { RotateCw } from 'lucide-react';
+import { useAuth } from '../../store/useAuth';
+
+const BOARD_THEMES = {
+  classic: { dark: '#b58863', light: '#f0d9b5' },
+  green: { dark: '#769656', light: '#eeeed2' },
+  blue: { dark: '#6b8cae', light: '#dee3e6' },
+};
 
 export default function InteractiveBoard({
   fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -20,6 +27,8 @@ export default function InteractiveBoard({
     }
   });
 
+  const boardTheme = useAuth(st => st.settings.boardTheme);
+  const colors = BOARD_THEMES[boardTheme] || BOARD_THEMES.classic;
   const [boardOrientation, setBoardOrientation] = useState(orientation);
   const [moveFrom, setMoveFrom] = useState('');
   const [possibleMoves, setPossibleMoves] = useState([]);
@@ -151,14 +160,14 @@ export default function InteractiveBoard({
     onSquareClick: onSquareClick,
     squareStyles: mergedSquareStyles,
     arrows: arrows,
-    darkSquareStyle: { backgroundColor: '#b58863' },
-    lightSquareStyle: { backgroundColor: '#f0d9b5' },
+    darkSquareStyle: { backgroundColor: colors.dark },
+    lightSquareStyle: { backgroundColor: colors.light },
     boardStyle: {
       borderRadius: '12px',
       boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
     },
     animationDurationInMs: 200,
-  }), [game, boardOrientation, interactive, mergedSquareStyles, arrows]);
+  }), [game, boardOrientation, interactive, mergedSquareStyles, arrows, colors]);
 
   return (
     <div

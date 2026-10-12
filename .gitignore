@@ -29,3 +29,5 @@ dist-ssr
 
 # Backend repository (separated repository)
 server/
+
+server/.ownership-secret

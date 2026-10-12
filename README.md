@@ -41,6 +41,15 @@ To connect to a deployed backend service, create a `.env` file in the root:
 VITE_API_URL=https://your-chessmind-backend.onrender.com/api
 ```
 
+### Accounts & Google sign-in (Supabase)
+Real accounts, Google sign-in and private per-user data need a free Supabase project:
+1. Create a project at supabase.com, then run [`supabase/user_data.sql`](supabase/user_data.sql) in **SQL Editor** (creates the table with row-level security: each user can only read/write their own rows).
+2. **Authentication → Providers → Google**: enable it and paste a Google OAuth *Client ID/Secret* (Google Cloud Console → APIs & Services → Credentials → OAuth client, type "Web"). Add the callback URL shown by Supabase (`https://<project>.supabase.co/auth/v1/callback`) as an authorised redirect URI in Google.
+3. **Authentication → URL Configuration**: add `http://localhost:5173` (and your deployed URL) to Redirect URLs.
+4. Copy `.env.example` to `.env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project Settings → API), then restart `npm run dev`.
+
+Without these keys the app runs in local development mode: browser-only email accounts and guests, and Google sign-in is disabled.
+
 ### 3. Run Development Server
 ```bash
 npm run dev

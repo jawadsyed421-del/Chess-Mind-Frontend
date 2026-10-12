@@ -1,14 +1,18 @@
+import { useStore } from '../store/useStore';
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 class ApiService {
   async request(endpoint, options = {}) {
     const url = `${API_BASE}${endpoint}`;
+    const token = useStore.getState().account?.ownershipToken;
     const config = {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { 'X-Ownership-Token': token } : {}),
         ...options.headers,
       },
-      ...options,
     };
 
     try {
@@ -29,9 +33,10 @@ class ApiService {
   }
 
   // Profile endpoints
-  async connectProfile(platform, username) {
+  async connectProfile(platform, username, token) {
     return this.request('/profile/connect', {
       method: 'POST',
+      headers: token ? { 'X-Ownership-Token': token } : {},
       body: JSON.stringify({ platform, username }),
     });
   }
