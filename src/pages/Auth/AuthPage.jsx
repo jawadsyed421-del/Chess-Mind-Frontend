@@ -43,15 +43,18 @@ export default function AuthPage({ mode }) {
     <div className="auth-page">
       <aside className="auth-brand" aria-hidden="true">
         <span className="auth-logo"><span className="sidebar-logo-icon">♟</span> ChessMind</span>
-        <h2>Turn your chess mistakes into practice.</h2>
-        <ul>
-          {perks.map(p => (
-            <li key={p.text}><p.icon size={18} /> {p.text}</li>
-          ))}
-        </ul>
-        <div className="auth-brand-board">
-          <InteractiveBoard fen="r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4" interactive={false} />
+        <div className="auth-brand-main">
+          <h2>Turn your chess mistakes into practice.</h2>
+          <ul>
+            {perks.map(p => (
+              <li key={p.text}><p.icon size={18} /> {p.text}</li>
+            ))}
+          </ul>
+          <div className="auth-brand-board">
+            <InteractiveBoard fen="r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4" interactive={false} />
+          </div>
         </div>
+        <p className="auth-brand-foot">Connect Chess.com or Lichess · Stockfish analysis · Personalised practice</p>
       </aside>
       <div className="auth-card card-glass animate-slide-up">
         <Link to="/welcome" className="auth-logo"><span className="sidebar-logo-icon">♟</span> ChessMind</Link>
