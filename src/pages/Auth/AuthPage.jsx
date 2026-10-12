@@ -2,7 +2,15 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/useAuth';
 import SocialButtons from './SocialButtons';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, BarChart3, Target, GraduationCap, Repeat } from 'lucide-react';
+import InteractiveBoard from '../../components/Chessboard/InteractiveBoard';
+
+const perks = [
+  { icon: BarChart3, text: 'Stockfish finds the mistakes in your games' },
+  { icon: Target, text: 'Practice built from your own positions' },
+  { icon: GraduationCap, text: 'Learn from Grandmaster examples' },
+  { icon: Repeat, text: 'Spaced review so lessons stick' },
+];
 
 export default function AuthPage({ mode }) {
   const isSignup = mode === 'signup';
@@ -33,6 +41,18 @@ export default function AuthPage({ mode }) {
 
   return (
     <div className="auth-page">
+      <aside className="auth-brand" aria-hidden="true">
+        <span className="auth-logo"><span className="sidebar-logo-icon">♟</span> ChessMind</span>
+        <h2>Turn your chess mistakes into practice.</h2>
+        <ul>
+          {perks.map(p => (
+            <li key={p.text}><p.icon size={18} /> {p.text}</li>
+          ))}
+        </ul>
+        <div className="auth-brand-board">
+          <InteractiveBoard fen="r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4" interactive={false} />
+        </div>
+      </aside>
       <div className="auth-card card-glass animate-slide-up">
         <Link to="/welcome" className="auth-logo"><span className="sidebar-logo-icon">♟</span> ChessMind</Link>
         <h1 className="page-title" style={{ fontSize: '1.6rem' }}>{isSignup ? 'Create a free account' : 'Welcome back'}</h1>
