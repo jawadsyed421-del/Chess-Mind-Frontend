@@ -87,7 +87,7 @@ function HomeOnboarding({ navigate, loadDemoAccount }) {
         </div>
 
         {/* Feature cards */}
-        <div className="flex flex-col gap-md" style={{ marginBottom: 'var(--space-xl)' }}>
+        <div className="flex flex-col gap-md onboard-features" style={{ marginBottom: 'var(--space-xl)' }}>
           {[
             { icon: Brain, title: 'Analyze Your Games', desc: 'Stockfish 19 engine detects strategic, positional & tactical errors' },
             { icon: Zap, title: 'Find Your Weaknesses', desc: 'Detailed theme detection across forks, pins, and pawn structures' },
@@ -111,7 +111,7 @@ function HomeOnboarding({ navigate, loadDemoAccount }) {
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className="onboard-actions" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <button className="btn btn-primary btn-lg w-full" onClick={() => navigate('/connect')}>
             <Link2 size={20} />
             Connect Your Chess Profile

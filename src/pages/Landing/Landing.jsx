@@ -45,12 +45,12 @@ export default function Landing() {
       <section className="landing-hero">
         <div>
           <h1>Turn your chess mistakes into practice.</h1>
-          <p className="text-secondary" style={{ fontSize: '1.05rem', margin: '12px 0 24px' }}>
+          <p className="landing-lede">
             ChessMind imports your games from Chess.com or Lichess, finds mistakes with Stockfish, and builds practice around them.
           </p>
           {!user && (
-            <div style={{ maxWidth: 340 }}>
-              <Link to="/signup" className="btn btn-primary btn-lg w-full" style={{ marginBottom: 12 }}>Get started — create a free account</Link>
+            <div className="landing-cta">
+              <Link to="/signup" className="btn btn-primary btn-lg w-full">Get started — create a free account</Link>
               <SocialButtons redirectTo="/" />
             </div>
           )}
@@ -87,6 +87,15 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      <footer className="landing-footer">
+        <h2 style={{ fontFamily: 'var(--font-display)', marginBottom: 16 }}>Ready to improve?</h2>
+        {user ? (
+          <button className="btn btn-primary btn-lg" onClick={() => navigate('/')}>Open the app</button>
+        ) : (
+          <Link to="/signup" className="btn btn-primary btn-lg">Create a free account</Link>
+        )}
+      </footer>
     </div>
   );
 }
