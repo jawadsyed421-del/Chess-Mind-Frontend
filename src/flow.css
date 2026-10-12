@@ -11,7 +11,7 @@
   .auth-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 0; align-items: stretch; gap: 0; }
   .auth-page .auth-brand { display: flex; flex-direction: column; justify-content: space-between; gap: 28px; min-height: 100vh; min-height: 100dvh;
     padding: clamp(32px, 6vh, 64px) clamp(40px, 6vw, 112px);
-    background: radial-gradient(120% 80% at 0% 0%, rgba(124,92,252,.30), transparent 60%), var(--bg-secondary); border-right: 1px solid var(--border-subtle); }
+    background: var(--bg-primary); border-right: 1px solid var(--border-default); }
   .auth-brand .auth-logo { margin: 0; font-size: 1.4rem; }
   .auth-brand-main { display: flex; flex-direction: column; gap: clamp(16px, 3vh, 28px); }
   .auth-brand h2 { font-family: var(--font-display); font-size: clamp(2.2rem, 3.4vw, 3.6rem); line-height: 1.08; letter-spacing: -0.02em; max-width: 640px; }
@@ -40,7 +40,7 @@
 .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-default); }
 .social-stack { display: flex; flex-direction: column; gap: 10px; }
 .social-btn { gap: 10px; justify-content: center; }
-.form-error { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: var(--radius-md); background: rgba(255,92,92,.1); border: 1px solid rgba(255,92,92,.3); color: var(--accent-danger); font-size: .88rem; }
+.form-error { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--accent-danger) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent-danger) 40%, transparent); color: var(--accent-danger); font-size: .88rem; }
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 300; display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; }
 .modal-card { position: relative; width: 100%; max-width: 420px; background: var(--bg-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg, 14px); padding: 20px; box-shadow: var(--glass-shadow); }
