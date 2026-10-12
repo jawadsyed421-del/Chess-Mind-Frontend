@@ -1,6 +1,31 @@
 /* Landing, auth, modal, stats, mobile tabs, light theme */
-.auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg-primary); }
-.auth-card { width: 100%; max-width: 420px; padding: 28px; }
+.auth-page { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; background: var(--bg-primary); }
+.auth-card { width: 100%; max-width: 440px; padding: 28px; }
+.auth-brand { display: none; }
+
+/* Tablet: roomier centred card */
+@media (min-width: 600px) { .auth-card { max-width: 520px; padding: 40px; } .auth-card .input, .auth-card .btn-lg { font-size: 1rem; } }
+
+/* Desktop / laptop: brand panel on the left, form on the right */
+@media (min-width: 1024px) {
+  .auth-page { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(420px, 1fr); gap: 0; padding: 0; align-items: stretch; }
+  .auth-brand { display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: 56px clamp(40px, 6vw, 96px);
+    background: radial-gradient(120% 90% at 0% 0%, rgba(124,92,252,.28), transparent 60%), var(--bg-secondary); border-right: 1px solid var(--border-subtle); }
+  .auth-brand .auth-logo { margin: 0; font-size: 1.3rem; }
+  .auth-brand h2 { font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 3.2vw, 3rem); line-height: 1.1; max-width: 520px; }
+  .auth-brand ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px; color: var(--text-secondary); }
+  .auth-brand li { display: flex; align-items: center; gap: 10px; }
+  .auth-brand li svg { color: var(--accent-secondary); flex-shrink: 0; }
+  .auth-brand-board { width: min(100%, 380px); pointer-events: none; }
+  .auth-card { align-self: center; justify-self: center; max-width: 460px; background: transparent; border: none; box-shadow: none; backdrop-filter: none; padding: 40px; }
+}
+
+/* Phone: edge-to-edge form, no card chrome, comfortable tap targets */
+@media (max-width: 599px) {
+  .auth-page { align-items: flex-start; padding: 16px 0 0; }
+  .auth-card { max-width: none; border-radius: 0; border-left: none; border-right: none; padding: 20px 16px 32px; box-shadow: none; }
+  .auth-card .input, .auth-card .btn-lg { min-height: 48px; font-size: 16px; } /* 16px stops iOS zoom on focus */
+}
 .auth-logo { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.1rem; margin-bottom: 16px; color: var(--text-primary); text-decoration: none; }
 .auth-divider { display: flex; align-items: center; gap: 12px; color: var(--text-tertiary); font-size: 0.8rem; margin: 18px 0; }
 .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-default); }
