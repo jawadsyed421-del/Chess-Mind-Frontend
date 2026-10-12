@@ -170,7 +170,7 @@ export default function GrandmasterStudy() {
             {revealed ? (
               <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{
-                  background: isCorrectMove ? 'rgba(0, 230, 138, 0.1)' : 'rgba(124, 92, 252, 0.1)',
+                  background: isCorrectMove ? 'rgba(0, 230, 138, 0.1)' : 'var(--accent-primary-glow)',
                   border: `1px solid ${isCorrectMove ? 'var(--accent-success)' : 'var(--accent-primary)'}`,
                   padding: '14px',
                   borderRadius: 'var(--radius-md)',
