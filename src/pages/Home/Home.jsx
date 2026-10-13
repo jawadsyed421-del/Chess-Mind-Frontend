@@ -8,7 +8,6 @@ import {
   GraduationCap,
   Zap,
   Brain,
-  Sparkles,
   Play,
 } from 'lucide-react';
 
@@ -124,7 +123,6 @@ function HomeOnboarding({ navigate, loadDemoAccount }) {
               navigate('/games');
             }}
           >
-            <Sparkles size={18} />
             Explore Interactive Demo (Instant Access)
           </button>
         </div>
