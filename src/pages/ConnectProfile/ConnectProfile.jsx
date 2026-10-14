@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import api from '../../services/api';
-import { CheckCircle2, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ShieldCheck } from 'lucide-react';
 
 const PLATFORMS = {
-  chesscom: { name: 'Chess.com', icon: '♟️' },
-  lichess: { name: 'Lichess.org', icon: '♞' },
+  chesscom: { name: 'Chess.com', logo: '/logos/chesscom.png' },
+  lichess: { name: 'Lichess.org', logo: '/logos/lichess.png' },
 };
 
 export default function ConnectProfile() {
@@ -17,14 +17,12 @@ export default function ConnectProfile() {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [resultData, setResultData] = useState(null);
 
   const platformName = PLATFORMS[platform].name;
 
   function choose(next) {
     setPlatform(next);
     setError(null);
-    setResultData(null);
   }
 
   // Imports the public profile, stats and recent games for the entered username.
@@ -42,7 +40,8 @@ export default function ConnectProfile() {
       addToast({ type: 'success', message: `Connected ${conn.profile.username}! Importing games...` });
       const gamesResult = await api.fetchGames(platform, conn.profile.username, 50);
       setGames(gamesResult.games || []);
-      setResultData({ profile: conn.profile, gamesCount: gamesResult.games?.length || 0 });
+      addToast({ type: 'success', message: `Imported ${gamesResult.games?.length || 0} games from ${platformName}.` });
+      navigate('/');
     } catch (err) {
       setError(err.message || 'Could not import this profile.');
     } finally {
@@ -67,7 +66,7 @@ export default function ConnectProfile() {
         <div className="platform-selector">
           {Object.entries(PLATFORMS).map(([key, p]) => (
             <div key={key} className={`platform-option ${platform === key ? 'selected' : ''}`} onClick={() => choose(key)}>
-              <div className="platform-option-icon">{p.icon}</div>
+              <div className="platform-option-icon"><img src={p.logo} alt="" className={`platform-logo platform-logo-${key}`} /></div>
               <div className="platform-option-name">{p.name}</div>
               <div className="platform-option-desc">Import with your username</div>
             </div>
@@ -108,24 +107,6 @@ export default function ConnectProfile() {
           </button>
         </div>
       </div>
-
-      {resultData && (
-        <div className="card animate-fade-in" style={{ border: '1px solid var(--accent-success)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'var(--space-md)' }}>
-            <CheckCircle2 size={24} style={{ color: 'var(--accent-success)' }} />
-            <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Profile connected!</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Loaded {resultData.profile.username} ({resultData.gamesCount} games)
-              </p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn btn-primary w-full" onClick={() => navigate('/games')}>View Imported Games <ArrowRight size={16} /></button>
-            <button className="btn btn-secondary w-full" onClick={() => navigate('/')}>Go to Dashboard</button>
-          </div>
-        </div>
-      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginTop: 'var(--space-xl)', color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
         <ShieldCheck size={16} />

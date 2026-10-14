@@ -3,34 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import {
   User,
-  ShieldAlert,
-  Award,
-  TrendingUp,
-  Target,
-  RefreshCw,
   LogOut,
   ChevronRight,
-  Sparkles,
-  Zap,
   CheckCircle2,
   XCircle,
-  Calendar,
-  Layers,
-  History
+  AlertCircle,
+  TrendingUp,
+  History,
+  Flame,
+  Settings as SettingsIcon,
 } from 'lucide-react';
+import { platformName, practiceStreak } from '../../utils/gameInsights';
+
+const CATEGORIES = [
+  { key: 'tactical', label: 'Tactical', desc: 'more than 2 pawns lost', color: 'var(--tactical-color)' },
+  { key: 'positional', label: 'Positional', desc: '1.0–2.0 pawns lost', color: 'var(--positional-color)' },
+  { key: 'strategic', label: 'Strategic', desc: '0.4–1.0 pawns lost', color: 'var(--strategic-color)' },
+];
+
+function StatusTag({ status }) {
+  if (status === 'Needs Practice') {
+    return <span className="pf-status pf-status-bad"><AlertCircle size={13} /> Needs practice</span>;
+  }
+  if (status === 'Improving') {
+    return <span className="pf-status pf-status-up"><TrendingUp size={13} /> Improving</span>;
+  }
+  return <span className="pf-status pf-status-good"><CheckCircle2 size={13} /> Strong</span>;
+}
 
 export default function Profile() {
   const navigate = useNavigate();
-  const {
-    account,
-    profile,
-    stats,
-    games,
-    weaknesses,
-    trainingHistory,
-    currentFocus,
-    disconnect
-  } = useStore();
+  const { account, profile, stats, games, weaknesses, trainingHistory, currentFocus, disconnect } = useStore();
 
   if (!account) {
     return (
@@ -47,263 +50,142 @@ export default function Profile() {
     );
   }
 
-  // Calculate training history stats
-  const totalPractices = trainingHistory.length;
-  const correctPractices = trainingHistory.filter(t => t.isCorrect).length;
-  const practiceSuccessRate = totalPractices > 0 ? Math.round((correctPractices / totalPractices) * 100) : 0;
+  const analysed = games.filter(g => g.analysis_status === 'complete').length;
+  const displayName = profile?.name || profile?.username || account.username;
+  const ratings = Object.entries(stats || {}).filter(([, v]) => v?.rating);
+  const streak = practiceStreak(trainingHistory);
 
-  // Find improving and needs practice areas across all categories
-  const allThemes = [
-    ...(weaknesses?.tactical || []),
-    ...(weaknesses?.positional || []),
-    ...(weaknesses?.strategic || []),
-  ];
-
-  const improvingAreas = allThemes.filter(t => t.status === 'Improving' || t.status === 'Strong');
-  const needsPracticeAreas = allThemes.filter(t => t.status === 'Needs Practice');
+  const focusCategory = CATEGORIES.find(c =>
+    (weaknesses?.[c.key] || []).some(i => i.name === currentFocus)
+  );
 
   return (
-    <div className="animate-slide-up" style={{ maxWidth: 1040, margin: '0 auto' }}>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <div className="flex items-center gap-sm mb-xs">
-            <span className={`platform-dot ${account.platform}`} />
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-tertiary)', textTransform: 'capitalize' }}>
-              {account.platform === 'chesscom' ? 'Chess.com' : 'Lichess'} Account
-            </span>
-          </div>
-          <h1 className="page-title">{profile?.name || profile?.username || account.username}</h1>
-          <p className="page-subtitle">
-            Personalized Weakness Profile &amp; Adaptive Learning History • {games.length} Games Tracked
-          </p>
+    <div className="pf animate-slide-up">
+      <div className="pf-top">
+        <h1 className="page-title">Profile</h1>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/settings')}>
+            <SettingsIcon size={14} /> Settings
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={disconnect}>
+            <LogOut size={14} /> Disconnect
+          </button>
         </div>
+      </div>
 
-        <button className="btn btn-secondary btn-sm" onClick={disconnect} style={{ gap: '6px' }}>
-          <LogOut size={14} /> Disconnect Account
+      <div className="pf-identity">
+        {profile?.avatar ? (
+          <img className="pf-avatar" src={profile.avatar} alt="" />
+        ) : (
+          <div className="pf-avatar pf-avatar-fallback">{displayName[0]?.toUpperCase()}</div>
+        )}
+        <div>
+          <h2 className="pf-name">{displayName}</h2>
+          <div className="pf-meta">
+            <span className="pf-platform">{platformName(account.platform)}</span>
+            <span className="pf-username">{account.username}</span>
+            {ratings.map(([k, v]) => (
+              <span key={k} className="pf-rating">
+                <span style={{ textTransform: 'capitalize' }}>{k}</span> <strong>{v.rating}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="pf-stats">
+        <div>
+          <div className="pf-stat-label">Games analysed</div>
+          <div className="pf-stat-value">{analysed}</div>
+          <div className="pf-stat-sub">by Stockfish · {games.length} imported</div>
+        </div>
+        <div>
+          <div className="pf-stat-label">Current focus</div>
+          <div className="pf-stat-value pf-stat-text">{currentFocus}</div>
+          <div className="pf-stat-sub">{focusCategory?.label || 'Overall'}</div>
+        </div>
+        <div>
+          <div className="pf-stat-label">Exercises</div>
+          <div className="pf-stat-value">{trainingHistory.length}</div>
+          <div className="pf-stat-sub">
+            {trainingHistory.length ? `${trainingHistory.filter(t => t.isCorrect).length} solved` : 'none yet'}
+          </div>
+        </div>
+        <div>
+          <div className="pf-stat-label"><Flame size={13} /> Streak</div>
+          <div className="pf-stat-value">{streak.current}d</div>
+          <div className="pf-stat-sub">best {streak.best} day{streak.best === 1 ? '' : 's'}</div>
+        </div>
+      </div>
+
+      <div className="pf-section-head">
+        <h2>Weaknesses by category</h2>
+        <span>{analysed ? `from ${analysed} analysed game${analysed === 1 ? '' : 's'}` : 'analyse games to refine'}</span>
+      </div>
+
+      <div className="pf-weak-grid">
+        {CATEGORIES.map(cat => {
+          const items = weaknesses?.[cat.key] || [];
+          const total = items.reduce((s, i) => s + (i.errorsCount || 0), 0);
+          const max = Math.max(1, ...items.map(i => i.errorsCount || 0));
+          const needs = items.filter(i => i.status === 'Needs Practice').length;
+          const catStatus = needs > items.length / 2 ? 'Needs Practice' : needs ? 'Improving' : 'Strong';
+          const perGame = analysed ? (total / analysed).toFixed(1) : total;
+
+          return (
+            <div key={cat.key} className="pf-weak-col">
+              <div className="pf-weak-head">
+                <span className="pf-weak-title"><span className="pf-dot" style={{ background: cat.color }} />{cat.label}</span>
+                <StatusTag status={catStatus} />
+              </div>
+              <div className="pf-weak-desc">{cat.desc}</div>
+              <div className="pf-weak-rate">
+                <strong>{perGame}</strong> {analysed ? 'per game' : 'mistakes found'}
+              </div>
+              {[...items].sort((a, b) => (b.errorsCount || 0) - (a.errorsCount || 0)).map(item => (
+                <div key={item.id} className="pf-weak-item">
+                  <div className="pf-weak-row">
+                    <span>{item.name}</span>
+                    <span className="pf-weak-count">{item.errorsCount || 0}×</span>
+                    <StatusTag status={item.status} />
+                  </div>
+                  <div className="pf-bar">
+                    <div style={{ width: `${((item.errorsCount || 0) / max) * 100}%`, background: cat.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="pf-section-head">
+        <h2><History size={18} /> Training history</h2>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/training')}>
+          Practise now <ChevronRight size={14} />
         </button>
       </div>
 
-      {/* Progress Over Time KPI Banner */}
-      <div className="stat-grid" style={{ marginBottom: 'var(--space-xl)' }}>
-        <div className="stat-card">
-          <span className="stat-card-label">Games Analyzed</span>
-          <span className="stat-card-value">{games.filter(g => g.analysis_status === 'complete').length}</span>
-          <span className="stat-card-sub">Stockfish 19 deep scans</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-card-label">Training Drills</span>
-          <span className="stat-card-value" style={{ color: 'var(--accent-primary)' }}>{totalPractices}</span>
-          <span className="stat-card-sub">Interactive puzzles solved</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-card-label">Drill Accuracy</span>
-          <span className="stat-card-value" style={{ color: 'var(--accent-success)' }}>
-            {totalPractices > 0 ? `${practiceSuccessRate}%` : '—'}
-          </span>
-          <span className="stat-card-sub">{correctPractices} of {totalPractices} correct</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-card-label">Mastered Areas</span>
-          <span className="stat-card-value" style={{ color: 'var(--accent-secondary)' }}>
-            {improvingAreas.length}
-          </span>
-          <span className="stat-card-sub">Themes improving/strong</span>
-        </div>
-      </div>
-
-      {/* Current Improvement Focus Banner */}
-      <div className="card-glass" style={{ marginBottom: 'var(--space-xl)', borderLeft: '4px solid var(--accent-primary)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em' }}>
-              Current Improvement Focus
+      {trainingHistory.length === 0 ? (
+        <p className="pf-empty">No practice drills completed yet.</p>
+      ) : (
+        <div className="pf-history">
+          {trainingHistory.slice(0, 8).map(record => (
+            <div key={record.id} className="pf-history-row">
+              {record.isCorrect
+                ? <CheckCircle2 size={18} style={{ color: 'var(--accent-success)' }} />
+                : <XCircle size={18} style={{ color: 'var(--accent-danger)' }} />}
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600 }}>{record.theme} drill</div>
+                <div className="pf-stat-sub">
+                  Played <code>{record.playedSan}</code> · Solution <code>{record.solutionSan}</code>
+                </div>
+              </div>
+              <span className="pf-stat-sub">
+                {new Date(record.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+              </span>
             </div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '2px' }}>
-              {currentFocus || 'Tactical Fork Recognition & Pawn Structure Decisions'}
-            </h2>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-              Dynamically derived from recurring evaluation drops across your match history and refined through completed drills.
-            </p>
-          </div>
-
-          <button className="btn btn-primary" onClick={() => navigate('/training')} style={{ gap: '6px' }}>
-            <Target size={16} /> Practice Current Focus
-          </button>
-        </div>
-      </div>
-
-      {/* Weakness Breakdown Grid: Tactical, Positional, Strategic */}
-      <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 'var(--space-md)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Layers size={20} style={{ color: 'var(--accent-primary)' }} />
-        <span>Weakness Intelligence Breakdown</span>
-      </h2>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 'var(--space-lg)', marginBottom: 'var(--space-xl)' }}>
-        
-        {/* Tactical Weaknesses */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Zap size={18} style={{ color: 'var(--tactical-color)' }} />
-              Tactical Themes
-            </h3>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {(weaknesses?.tactical || []).map((item, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{item.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-                    {item.errorsCount || 0} mistake(s) • {item.practiceCount || 0} drill(s)
-                  </div>
-                </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: item.color }}>
-                  {item.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Positional Weaknesses */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={18} style={{ color: 'var(--positional-color)' }} />
-              Positional Themes
-            </h3>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {(weaknesses?.positional || []).map((item, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{item.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-                    {item.errorsCount || 0} mistake(s) • {item.practiceCount || 0} drill(s)
-                  </div>
-                </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: item.color }}>
-                  {item.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Strategic Weaknesses */}
-        <div className="card">
-          <div className="card-header">
-            <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TrendingUp size={18} style={{ color: 'var(--strategic-color)' }} />
-              Strategic Planning
-            </h3>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {(weaknesses?.strategic || []).map((item, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{item.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-                    {item.errorsCount || 0} mistake(s) • {item.practiceCount || 0} drill(s)
-                  </div>
-                </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: item.color }}>
-                  {item.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </div>
-
-      {/* Sprint 4 Deliverable: Training History Section */}
-      <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
-        <div className="card-header">
-          <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <History size={18} style={{ color: 'var(--accent-primary)' }} />
-            Training History &amp; Drill Results ({trainingHistory.length})
-          </h3>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/training')}>
-            Add Practice Drill <ChevronRight size={14} />
-          </button>
-        </div>
-
-        {trainingHistory.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
-            <p style={{ fontSize: '0.9rem' }}>No practice drills completed yet.</p>
-            <button className="btn btn-primary btn-sm" onClick={() => navigate('/training')} style={{ marginTop: '12px' }}>
-              Solve Your First Drill
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {trainingHistory.slice(0, 8).map((record) => {
-              const formattedTime = new Date(record.date).toLocaleDateString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              });
-
-              return (
-                <div
-                  key={record.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--bg-tertiary)',
-                    gap: '12px',
-                    flexWrap: 'wrap'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {record.isCorrect ? (
-                      <CheckCircle2 size={18} style={{ color: 'var(--accent-success)' }} />
-                    ) : (
-                      <XCircle size={18} style={{ color: 'var(--accent-danger)' }} />
-                    )}
-                    <div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{record.theme} Drill</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
-                        Played: <code>{record.playedSan}</code> • Solution: <code>{record.solutionSan}</code>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span className={`badge badge-${record.isCorrect ? 'complete' : 'loss'}`}>
-                      {record.isCorrect ? 'Correct' : 'Needs Review'}
-                    </span>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
-                      {formattedTime}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Ratings summary from connected account */}
-      {stats && (
-        <div className="card">
-          <h3 className="card-title" style={{ marginBottom: '14px' }}>Connected Account Ratings</h3>
-          <div className="stat-grid">
-            {Object.entries(stats).map(([key, val]) => (
-              <div key={key} className="stat-card" style={{ padding: '14px' }}>
-                <span className="stat-card-label">{key}</span>
-                <span className="stat-card-value" style={{ fontSize: '1.4rem' }}>
-                  {val.rating || 'Unrated'}
-                </span>
-                <span className="stat-card-sub">{val.wins} Games</span>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       )}
     </div>

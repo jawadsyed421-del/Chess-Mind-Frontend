@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
+import { cleanOpening, classifyMove } from '../../utils/gameInsights';
 import { userStorage } from '../../store/userStorage';
 import { Chess } from 'chess.js';
 import InteractiveBoard from '../../components/Chessboard/InteractiveBoard';
@@ -130,6 +131,7 @@ export default function GameAnalysis() {
           evalBefore: m.evalBefore,
           bestMoveSan: m.bestMoveSan,
           mate: m.mate,
+          color: m.color,
         };
       });
     }
@@ -207,6 +209,10 @@ export default function GameAnalysis() {
 
   const activeMistake = identifiedMistakes.find(m => m.moveIndex === currentMoveIndex);
   const currentEval = currentMoveIndex >= 0 ? moveEvals[currentMoveIndex] : null;
+  const rateMove = i => classifyMove(moveEvals[i], gameHistory[i]?.san);
+  const currentRating = currentMoveIndex >= 0 ? rateMove(currentMoveIndex) : null;
+  const nextBest = moveEvals[currentMoveIndex + 1]?.bestMoveSan;
+  const TONE_COLOR = { good: 'var(--accent-success)', warn: 'var(--accent-warning)', bad: 'var(--accent-danger)' };
 
   // Calculate eval bar visual height / percentage (-5 to +5 range mapped to 0-100%)
   const rawScore = currentEval?.evalAfter ?? 0;
@@ -244,7 +250,7 @@ export default function GameAnalysis() {
             {selectedGame.player_color === 'white' ? selectedGame.white_player : selectedGame.black_player} vs {selectedGame.opponent}
           </h1>
           <p className="page-subtitle">
-            {selectedGame.opening_name || 'Standard Chess'} • Result:{' '}
+            {cleanOpening(selectedGame.opening_name)} • Result:{' '}
             <span style={{ textTransform: 'uppercase', fontWeight: 600 }}>{selectedGame.result}</span>
           </p>
         </div>
@@ -276,7 +282,7 @@ export default function GameAnalysis() {
       {/* Analysis Summary Header Cards */}
       {analysisResult?.summary && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: 'var(--space-lg)' }}>
-          <div className="card" style={{ padding: '14px', borderLeft: '4px solid var(--accent-danger)' }}>
+          <div className="card" style={{ padding: '14px' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
               Tactical Blunders
             </div>
@@ -286,7 +292,7 @@ export default function GameAnalysis() {
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Eval drop &gt; 2.0 pawns</div>
           </div>
 
-          <div className="card" style={{ padding: '14px', borderLeft: '4px solid var(--positional-color)' }}>
+          <div className="card" style={{ padding: '14px' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
               Positional Errors
             </div>
@@ -296,7 +302,7 @@ export default function GameAnalysis() {
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Eval drop 1.0 – 2.0 pawns</div>
           </div>
 
-          <div className="card" style={{ padding: '14px', borderLeft: '4px solid var(--strategic-color)' }}>
+          <div className="card" style={{ padding: '14px' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
               Strategic Errors
             </div>
@@ -306,7 +312,7 @@ export default function GameAnalysis() {
             <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Eval drop 0.4 – 1.0 pawns</div>
           </div>
 
-          <div className="card" style={{ padding: '14px', borderLeft: '4px solid var(--accent-primary)' }}>
+          <div className="card" style={{ padding: '14px' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
               Engine Assessment
             </div>
@@ -418,7 +424,52 @@ export default function GameAnalysis() {
 
         {/* Right Column: Mistake Feedback & Move List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-          
+
+          {/* Move-by-move verdict: a light per move plus the best continuation */}
+          {Object.keys(moveEvals).length > 0 && (
+            <div className="card move-verdict">
+              {currentMoveIndex === -1 ? (
+                <div className="move-verdict-head">
+                  <span className="move-light" style={{ background: 'var(--text-tertiary)' }} />
+                  <div>
+                    <div className="move-verdict-title">Starting position</div>
+                    <div className="move-verdict-sub">Step forward to see how each move is rated.</div>
+                  </div>
+                </div>
+              ) : currentRating ? (
+                <>
+                  <div className="move-verdict-head">
+                    <span className="move-light" style={{ background: TONE_COLOR[currentRating.tone], boxShadow: `0 0 12px ${TONE_COLOR[currentRating.tone]}` }} />
+                    <div>
+                      <div className="move-verdict-title" style={{ color: TONE_COLOR[currentRating.tone] }}>
+                        {Math.floor(currentMoveIndex / 2) + 1}{currentMoveIndex % 2 ? '...' : '.'} {gameHistory[currentMoveIndex]?.san} · {currentRating.label}
+                      </div>
+                      <div className="move-verdict-sub">
+                        {currentRating.tone === 'good'
+                          ? currentRating.key === 'best'
+                            ? 'This is exactly what the engine would play.'
+                            : 'A solid move that keeps the position under control.'
+                          : `This gave away about ${Math.round(currentRating.loss)}% of the winning chances.`}
+                      </div>
+                    </div>
+                  </div>
+                  {currentRating.tone !== 'good' && currentEval?.bestMoveSan && (
+                    <div className="move-verdict-fix">
+                      Better was <strong>{currentEval.bestMoveSan}</strong>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="move-verdict-sub">No engine rating for this move.</div>
+              )}
+              {nextBest && (
+                <div className="move-verdict-next">
+                  Best next move: <strong>{nextBest}</strong>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Active Mistake Coach Card */}
           {activeMistake ? (
             <div className="card-glass animate-fade-in" style={{
@@ -495,7 +546,7 @@ export default function GameAnalysis() {
                   <button
                     key={m.moveIndex}
                     onClick={() => goToMove(m.moveIndex)}
-                    className={`btn btn-sm ${currentMoveIndex === m.moveIndex ? 'btn-primary' : 'btn-secondary'}`}
+                    className={`btn btn-sm btn-secondary${currentMoveIndex === m.moveIndex ? ' move-chip-active' : ''}`}
                     style={{ fontSize: '0.8rem', gap: '6px' }}
                   >
                     <span>Move {m.moveNumber}. {m.moveSan}</span>
@@ -538,21 +589,17 @@ export default function GameAnalysis() {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        background: currentMoveIndex === whiteIndex ? 'var(--accent-primary)' : 'transparent',
-                        color: currentMoveIndex === whiteIndex ? '#fff' : 'inherit',
+                        background: currentMoveIndex === whiteIndex ? 'var(--bg-elevated)' : 'transparent',
+                        boxShadow: currentMoveIndex === whiteIndex ? 'inset 0 0 0 1px var(--border-default)' : 'none',
+                        fontWeight: currentMoveIndex === whiteIndex ? 700 : 400,
                       }}
                     >
                       <span>{whiteMove?.san || ''}</span>
-                      {whiteMistake && (
+                      {whiteMove && rateMove(whiteIndex) && (
                         <span
-                          style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            background: `var(--${whiteMistake.type}-color)`,
-                            display: 'inline-block',
-                          }}
-                          title={`${whiteMistake.type}: ${whiteMistake.theme}`}
+                          className="move-dot"
+                          style={{ background: TONE_COLOR[rateMove(whiteIndex).tone] }}
+                          title={rateMove(whiteIndex).label + (whiteMistake ? ` · ${whiteMistake.theme}` : '')}
                         />
                       )}
                     </span>
@@ -566,21 +613,17 @@ export default function GameAnalysis() {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        background: currentMoveIndex === blackIndex ? 'var(--accent-primary)' : 'transparent',
-                        color: currentMoveIndex === blackIndex ? '#fff' : 'inherit',
+                        background: currentMoveIndex === blackIndex ? 'var(--bg-elevated)' : 'transparent',
+                        boxShadow: currentMoveIndex === blackIndex ? 'inset 0 0 0 1px var(--border-default)' : 'none',
+                        fontWeight: currentMoveIndex === blackIndex ? 700 : 400,
                       }}
                     >
                       <span>{blackMove?.san || ''}</span>
-                      {blackMistake && (
+                      {blackMove && rateMove(blackIndex) && (
                         <span
-                          style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            background: `var(--${blackMistake.type}-color)`,
-                            display: 'inline-block',
-                          }}
-                          title={`${blackMistake.type}: ${blackMistake.theme}`}
+                          className="move-dot"
+                          style={{ background: TONE_COLOR[rateMove(blackIndex).tone] }}
+                          title={rateMove(blackIndex).label + (blackMistake ? ` · ${blackMistake.theme}` : '')}
                         />
                       )}
                     </span>
