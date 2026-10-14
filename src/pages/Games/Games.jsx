@@ -7,13 +7,10 @@ import {
   RefreshCw,
   Search,
   Filter,
-  ExternalLink,
   ChevronRight,
   Calendar,
-  Clock,
-  Sparkles,
-  Award
 } from 'lucide-react';
+import { platformName } from '../../utils/gameInsights';
 
 export default function Games() {
   const navigate = useNavigate();
@@ -32,7 +29,12 @@ export default function Games() {
     setRefreshing(true);
     try {
       const res = await api.fetchGames(account.platform, account.username, 40);
-      setGames(res.games || []);
+      // Keep analysis done locally; fresh fields (e.g. platform accuracy) come from the sync.
+      const known = new Map(games.map(g => [g.platform_game_id, g]));
+      setGames((res.games || []).map(g => {
+        const old = known.get(g.platform_game_id);
+        return old ? { ...g, analysis_status: old.analysis_status, engine_accuracy: old.engine_accuracy } : g;
+      }));
       addToast({ type: 'success', message: `Synced ${res.games?.length || 0} games!` });
     } catch (err) {
       addToast({ type: 'error', message: err.message || 'Failed to sync games' });
@@ -88,7 +90,7 @@ export default function Games() {
         <div>
           <h1 className="page-title">My Games</h1>
           <p className="page-subtitle">
-            Imported from {account.platform === 'chesscom' ? 'Chess.com' : 'Lichess'} ({games.length} total)
+            Imported from {platformName(account?.platform)} ({games.length} total)
           </p>
         </div>
 
@@ -184,8 +186,9 @@ export default function Games() {
                       {game.result}
                     </span>
                   </div>
-                  <div className="game-opening">
-                    {game.opening_name || 'Standard Chess'}
+                  <div className="game-opening" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span className={`platform-dot ${game.platform || 'chesscom'}`} />
+                    {platformName(game.platform)}
                   </div>
                 </div>
 
@@ -195,13 +198,7 @@ export default function Games() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span className="badge" style={{ fontSize: '0.75rem', gap: '5px', background: 'var(--bg-tertiary)', padding: '2px 8px' }}>
-                    <span className={`platform-dot ${game.platform || 'chesscom'}`} />
-                    {game.platform === 'lichess' ? 'Lichess' : 'Chess.com'}
-                  </span>
-
                   <span className={`badge badge-${game.analysis_status || 'pending'}`} style={{ gap: '4px' }}>
-                    <Sparkles size={11} />
                     {game.analysis_status === 'complete' ? 'Analyzed' : 'Ready to Analyze'}
                   </span>
                 </div>

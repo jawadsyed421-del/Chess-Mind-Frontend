@@ -74,6 +74,13 @@ class ApiService {
     });
   }
 
+  async evaluatePosition(fen, depth = 14) {
+    return this.request('/analysis/position', {
+      method: 'POST',
+      body: JSON.stringify({ fen, depth }),
+    });
+  }
+
   async getAnalysis(gameId) {
     return this.request(`/analysis/${gameId}`);
   }

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { userStorage } from './userStorage';
+import { accuracyFromEvals } from '../utils/gameInsights';
 
 // Sample demo games with real full PGNs for instant exploration
 const demoGamesData = [
@@ -255,10 +256,11 @@ export const useStore = create((set, get) => ({
     const { games, weaknesses } = get();
     const mistakes = analysisResult?.mistakes || [];
 
-    // Mark game as analyzed
+    // Mark game as analyzed and keep our engine accuracy for the Stats chart
+    const engineAccuracy = accuracyFromEvals(analysisResult?.moveEvaluations);
     const updatedGames = games.map(g => {
       if (g.platform_game_id === gameId) {
-        return { ...g, analysis_status: 'complete' };
+        return { ...g, analysis_status: 'complete', engine_accuracy: engineAccuracy };
       }
       return g;
     });
