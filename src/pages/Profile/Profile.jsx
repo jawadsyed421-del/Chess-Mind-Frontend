@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
+import InfoToggle from '../../components/InfoToggle/InfoToggle';
 import {
   User,
   LogOut,
@@ -138,7 +139,7 @@ export default function Profile() {
                 <span className="pf-weak-title"><span className="pf-dot" style={{ background: cat.color }} />{cat.label}</span>
                 <StatusTag status={catStatus} />
               </div>
-              <div className="pf-weak-desc">{cat.desc}</div>
+              <InfoToggle label="what this means">{cat.desc}</InfoToggle>
               <div className="pf-weak-rate">
                 <strong>{perGame}</strong> {analysed ? 'per game' : 'mistakes found'}
               </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { useAuth } from '../../store/useAuth';
+import InfoToggle from '../../components/InfoToggle/InfoToggle';
 import {
   Link2,
   Target,
@@ -130,13 +131,15 @@ function HomeInsights({ games, weaknesses, navigate }) {
         <div className="card home-style">
           <div className="home-style-label">{style.label}</div>
           <p className="home-style-desc">{style.desc}</p>
-          <div className="home-style-facts">
-            {style.avgMoves && <Fact label="Average game" value={`${style.avgMoves} moves`} />}
-            {style.favouriteFirstMove && <Fact label="First move as White" value={`1. ${style.favouriteFirstMove}`} />}
-            {style.whiteOpening && <Fact label="Main opening as White" value={style.whiteOpening} />}
-            {style.blackOpening && <Fact label="Main opening as Black" value={style.blackOpening} />}
-            {style.timeControl && <Fact label="Most played time control" value={style.timeControl} />}
-          </div>
+          <InfoToggle label="play style details">
+            <div className="home-style-facts">
+              {style.avgMoves && <Fact label="Average game" value={`${style.avgMoves} moves`} />}
+              {style.favouriteFirstMove && <Fact label="First move as White" value={`1. ${style.favouriteFirstMove}`} />}
+              {style.whiteOpening && <Fact label="Main opening as White" value={style.whiteOpening} />}
+              {style.blackOpening && <Fact label="Main opening as Black" value={style.blackOpening} />}
+              {style.timeControl && <Fact label="Most played time control" value={style.timeControl} />}
+            </div>
+          </InfoToggle>
         </div>
       </section>
 

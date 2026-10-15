@@ -164,9 +164,11 @@ export default function Layout({ children }) {
           </nav>
 
           <div className="sidebar-footer">
-            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{user?.name}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: 8 }}>
-              {user?.provider === 'guest' ? 'Guest' : account ? `${account.username} - ${account.platform === 'chesscom' ? 'Chess.com' : 'Lichess'}` : 'No chess profile'}
+            <div className="sf-text">
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{user?.name}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: 8 }}>
+                {user?.provider === 'guest' ? 'Guest' : account ? `${account.username} - ${account.platform === 'chesscom' ? 'Chess.com' : 'Lichess'}` : 'No chess profile'}
+              </div>
             </div>
             <button className="btn btn-ghost btn-sm w-full" onClick={() => { signOut(); navigate('/welcome'); }}>
               <LogOut size={14} />
