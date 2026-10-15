@@ -17,7 +17,14 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      const data = await response.json().catch(() => {
+        // An HTML page instead of JSON means the route doesn't exist on that server (outdated backend).
+        throw new Error(
+          response.status === 404
+            ? 'The server does not support this feature yet. The backend needs to be updated.'
+            : `The server sent an unexpected response (status ${response.status}).`
+        );
+      });
 
       if (!response.ok) {
         throw new Error(data.error || `Request failed with status ${response.status}`);

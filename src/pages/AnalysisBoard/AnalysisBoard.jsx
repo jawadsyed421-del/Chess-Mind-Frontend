@@ -5,6 +5,7 @@ import InteractiveBoard from '../../components/Chessboard/InteractiveBoard';
 import { useStore } from '../../store/useStore';
 import api from '../../services/api';
 import { classifyMove } from '../../utils/gameInsights';
+import InfoToggle from '../../components/InfoToggle/InfoToggle';
 import { Copy, RotateCcw, Cpu, Undo2, Lightbulb } from 'lucide-react';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -64,16 +65,20 @@ export default function AnalysisBoard() {
   useEffect(() => {
     let cancelled = false;
     if (game.isGameOver()) return;
+    // Reply after a random 1.5-3.5s "thinking" pause (counted from the user's move) so it feels like a person.
+    const thinkMs = 1500 + Math.random() * 2000;
+    const started = Date.now();
+    let timer;
     evaluate(fen).then(res => {
       if (cancelled || isUserTurn || !res?.bestMove) return;
-      setTimeout(() => {
+      timer = setTimeout(() => {
         if (cancelled) return;
         const c = new Chess(fen);
         const mv = c.move({ from: res.bestMove.slice(0, 2), to: res.bestMove.slice(2, 4), promotion: res.bestMove[4] });
         if (mv) setHistory(h => [...h, { san: mv.san, from: mv.from, to: mv.to, fenBefore: fen, fenAfter: c.fen(), by: 'engine' }]);
-      }, 450);
+      }, Math.max(0, thinkMs - (Date.now() - started)));
     }).catch(() => {});
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fen, side]);
 
@@ -146,8 +151,10 @@ export default function AnalysisBoard() {
   return (
     <div className="animate-slide-up" style={{ maxWidth: 1040, margin: '0 auto' }}>
       <div className="page-header">
-        <h1 className="page-title">Analysis board</h1>
-        <p className="page-subtitle">Play a side and get a suggestion before each move and a rating after it. Undo any move to try again.</p>
+        <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          Analysis board
+          <InfoToggle label="how it works">Play a side and get a suggestion before each move and a rating after it. Undo any move to try again.</InfoToggle>
+        </h1>
       </div>
 
       <div className="ab-sides">
