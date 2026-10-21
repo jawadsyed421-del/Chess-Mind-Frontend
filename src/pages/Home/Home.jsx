@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { useAuth } from '../../store/useAuth';
 import InfoToggle from '../../components/InfoToggle/InfoToggle';
+import Tip from '../../components/Tip/Tip';
 import {
   Link2,
   Target,
@@ -92,7 +93,9 @@ function HomeInsights({ games, weaknesses, navigate }) {
       <section className="home-section">
         <div className="home-section-head">
           <h2>Performance overview</h2>
-          <span>Last {all.n} games</span>
+          <span className="home-head-note">Last {all.n} games
+            <Tip label="About performance overview">Win rate is wins divided by games played. Rating change is how much your rating moved across these games. The bar and the W / L / D dots show your recent results, newest on the right.</Tip>
+          </span>
         </div>
         <div className="home-perf card">
           <div className="home-perf-main">
@@ -127,11 +130,14 @@ function HomeInsights({ games, weaknesses, navigate }) {
       </section>
 
       <section className="home-section">
-        <div className="home-section-head"><h2>Play style</h2></div>
+        <div className="home-section-head">
+          <h2>Play style</h2>
+          <Tip label="About play style">We read your games to describe how you play: how long they last, which pieces stay on the board and which openings you pick. It updates as you import more games.</Tip>
+        </div>
         <div className="card home-style">
           <div className="home-style-label">{style.label}</div>
           <p className="home-style-desc">{style.desc}</p>
-          <InfoToggle label="play style details">
+          <InfoToggle block label="play style details">
             <div className="home-style-facts">
               {style.avgMoves && <Fact label="Average game" value={`${style.avgMoves} moves`} />}
               {style.favouriteFirstMove && <Fact label="First move as White" value={`1. ${style.favouriteFirstMove}`} />}
@@ -145,7 +151,10 @@ function HomeInsights({ games, weaknesses, navigate }) {
 
       {recs.length > 0 && (
         <section className="home-section">
-          <div className="home-section-head"><h2>Recommendations</h2></div>
+          <div className="home-section-head">
+            <h2>Recommendations</h2>
+            <Tip label="About recommendations">Suggestions picked from your own results and mistakes. Each one links to the page where you can work on it.</Tip>
+          </div>
           <div className="home-recs">
             {recs.map(r => (
               <div key={r.title} className="card home-rec">

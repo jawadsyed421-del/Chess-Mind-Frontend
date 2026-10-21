@@ -134,6 +134,9 @@ const loadState = () => ({
   // Spaced-repetition review queue: { id, exercise, dueAt, step }
   reviewQueue: JSON.parse(userStorage.getItem('chessmind_review') || '[]'),
 
+  // Background engine analysis of imported games (not persisted)
+  bgAnalysis: { running: false, done: 0, total: 0, currentId: null },
+
   // UI state
   sidebarOpen: false,
   toasts: []
@@ -176,6 +179,7 @@ export const useStore = create((set, get) => ({
   },
 
   setGamesLoading: (loading) => set({ gamesLoading: loading }),
+  setBgAnalysis: (bgAnalysis) => set({ bgAnalysis }),
 
   toggleSidebar: () => set(s => ({ sidebarOpen: !s.sidebarOpen })),
   closeSidebar: () => set({ sidebarOpen: false }),

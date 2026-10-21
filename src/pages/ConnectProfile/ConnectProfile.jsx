@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import api from '../../services/api';
+import { startBackgroundAnalysis } from '../../services/backgroundAnalysis';
 import { AlertCircle, ShieldCheck } from 'lucide-react';
 
 const PLATFORMS = {
@@ -40,7 +41,8 @@ export default function ConnectProfile() {
       addToast({ type: 'success', message: `Connected ${conn.profile.username}! Importing games...` });
       const gamesResult = await api.fetchGames(platform, conn.profile.username, 50);
       setGames(gamesResult.games || []);
-      addToast({ type: 'success', message: `Imported ${gamesResult.games?.length || 0} games from ${platformName}.` });
+      addToast({ type: 'success', message: `Imported ${gamesResult.games?.length || 0} games from ${platformName}. Analysing them in the background...` });
+      startBackgroundAnalysis(); // runs while the user browses; Game analysis opens instantly afterwards
       navigate('/');
     } catch (err) {
       setError(err.message || 'Could not import this profile.');

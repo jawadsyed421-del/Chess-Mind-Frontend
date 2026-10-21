@@ -69,7 +69,7 @@ class ApiService {
   }
 
   // Analysis endpoints
-  async analyzeGame(pgn, playerColor, gameId, depth = 14) {
+  async analyzeGame(pgn, playerColor, gameId, depth = 14, force = false) {
     return this.request('/analysis/analyze', {
       method: 'POST',
       body: JSON.stringify({
@@ -77,6 +77,7 @@ class ApiService {
         player_color: playerColor,
         game_id: gameId,
         depth,
+        force,
       }),
     });
   }

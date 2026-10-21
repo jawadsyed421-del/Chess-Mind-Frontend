@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/useAuth';
 import { useStore } from '../../store/useStore';
+import { startBackgroundAnalysis } from '../../services/backgroundAnalysis';
 import {
   Home,
   Link2,
@@ -62,7 +63,7 @@ function QuickNav({ open, onClose }) {
 }
 
 export default function Layout({ children }) {
-  const { account, sidebarOpen, toggleSidebar, closeSidebar } = useStore();
+  const { account, games, bgAnalysis, sidebarOpen, toggleSidebar, closeSidebar } = useStore();
   const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -76,6 +77,11 @@ export default function Layout({ children }) {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, []);
+
+  // Pick up any games that still need engine analysis (after an import, a sync or a page reload)
+  useEffect(() => {
+    if (account && games.length) startBackgroundAnalysis();
+  }, [account, games]);
 
   const mainNav = navItems.filter(i => i.section === 'main');
   const learnNav = navItems.filter(i => i.section === 'learn');
@@ -162,6 +168,13 @@ export default function Layout({ children }) {
               </NavLink>
             ))}
           </nav>
+
+          {bgAnalysis.running && (
+            <div className="bg-analysis" role="status">
+              <span className="spinner" />
+              <span>Analysing your games {Math.min(bgAnalysis.done + 1, bgAnalysis.total)}/{bgAnalysis.total}</span>
+            </div>
+          )}
 
           <div className="sidebar-footer">
             <div className="sf-text">

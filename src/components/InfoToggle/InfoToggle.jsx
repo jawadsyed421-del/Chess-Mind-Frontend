@@ -30,10 +30,11 @@ export function InfoPanel({ open, children, className = '' }) {
 }
 
 // Button + panel in one, for simple cases: <InfoToggle>detail text</InfoToggle>
-export default function InfoToggle({ children, label }) {
+// `block` makes the detail span the full width of its container (for grids of facts).
+export default function InfoToggle({ children, label, block = false }) {
   const [open, toggle] = useInfo();
   return (
-    <span className="info-inline">
+    <span className={`info-inline${block ? ' block' : ''}`}>
       <InfoButton open={open} onToggle={toggle} label={label} />
       <InfoPanel open={open}>{children}</InfoPanel>
     </span>
