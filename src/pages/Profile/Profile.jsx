@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
-import InfoToggle from '../../components/InfoToggle/InfoToggle';
+import Tip from '../../components/Tip/Tip';
 import {
   User,
   LogOut,
@@ -137,9 +137,8 @@ export default function Profile() {
             <div key={cat.key} className="pf-weak-col">
               <div className="pf-weak-head">
                 <span className="pf-weak-title"><span className="pf-dot" style={{ background: cat.color }} />{cat.label}</span>
-                <StatusTag status={catStatus} />
+                <span className="pf-weak-right"><StatusTag status={catStatus} /><Tip label={`What ${cat.label} means`}>{cat.desc}</Tip></span>
               </div>
-              <InfoToggle label="what this means">{cat.desc}</InfoToggle>
               <div className="pf-weak-rate">
                 <strong>{perGame}</strong> {analysed ? 'per game' : 'mistakes found'}
               </div>

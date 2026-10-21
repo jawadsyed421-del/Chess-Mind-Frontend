@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { cleanOpening, classifyMove } from '../../utils/gameInsights';
-import { userStorage } from '../../store/userStorage';
+import { analyseGame, getCachedAnalysis } from '../../services/backgroundAnalysis';
+import Tip from '../../components/Tip/Tip';
 import { Chess } from 'chess.js';
 import InteractiveBoard from '../../components/Chessboard/InteractiveBoard';
 import api from '../../services/api';
@@ -22,13 +23,14 @@ import {
   Cpu,
   BarChart2,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  ChevronDown
 } from 'lucide-react';
 
 export default function GameAnalysis() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { games, saveGameAnalysis, addToast } = useStore();
+  const { games, addToast } = useStore();
 
   const gameId = searchParams.get('id');
   const [selectedGame, setSelectedGame] = useState(null);
@@ -39,6 +41,8 @@ export default function GameAnalysis() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [identifiedMistakes, setIdentifiedMistakes] = useState([]);
   const [moveEvals, setMoveEvals] = useState({});
+  const [mistakesOpen, setMistakesOpen] = useState(false);
+  const loadedId = useRef(null); // game currently shown; background updates to `games` must not reset it
 
   // Keyboard navigation for moves
   useEffect(() => {
@@ -76,7 +80,8 @@ export default function GameAnalysis() {
         }
       }
 
-      if (targetGame) {
+      if (targetGame && loadedId.current !== targetGame.platform_game_id) {
+        loadedId.current = targetGame.platform_game_id;
         setSelectedGame(targetGame);
         loadGamePgn(targetGame);
       }
@@ -97,19 +102,18 @@ export default function GameAnalysis() {
       setCurrentMoveIndex(-1);
       setCurrentFen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
 
-      // Check if analysis already exists in localStorage cache
-      const cached = userStorage.getItem(`chessmind_analysis_${gameData.platform_game_id}`);
+      // Analysis done in the background after the import is already cached: show it straight away
+      setAnalyzing(false);
+      setAnalysisResult(null);
+      setIdentifiedMistakes([]);
+      setMoveEvals({});
+      const cached = getCachedAnalysis(gameData.platform_game_id);
       if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          applyAnalysisResult(parsed);
-          return;
-        } catch {
-          // parse error, continue
-        }
+        applyAnalysisResult(cached);
+        return;
       }
 
-      // Automatically trigger engine analysis if not already cached
+      // Not analysed yet (or the background job is still on it): this joins that run or starts one
       runEngineAnalysis(gameData);
     } catch (err) {
       console.error('Error loading game PGN:', err);
@@ -138,62 +142,26 @@ export default function GameAnalysis() {
     setMoveEvals(evals);
   }
 
-  async function runEngineAnalysis(gameData = selectedGame) {
+  async function runEngineAnalysis(gameData = selectedGame, force = false) {
     if (!gameData?.pgn) return;
 
+    const id = gameData.platform_game_id;
     setAnalyzing(true);
     try {
-      const result = await api.analyzeGame(
-        gameData.pgn,
-        gameData.player_color || 'white',
-        gameData.platform_game_id,
-        12 // Depth 12 for fast, high-quality analysis
-      );
-
+      const result = await analyseGame(gameData, { force });
+      if (loadedId.current !== id) return; // the user moved on to another game meanwhile
       applyAnalysisResult(result);
-      userStorage.setItem(`chessmind_analysis_${gameData.platform_game_id}`, JSON.stringify(result));
-      if (saveGameAnalysis) {
-        saveGameAnalysis(gameData.platform_game_id, result?.analysis || result);
+      if (force) {
+        addToast({ type: 'success', message: `Engine analysis complete! Found ${result.analysis.mistakes?.length || 0} mistake(s).` });
       }
-      addToast({
-        type: 'success',
-        message: `Engine analysis complete! Found ${result.mistakes?.length || 0} mistake(s).`,
-      });
     } catch (err) {
-      console.warn('Real analysis error, generating heuristic diagnosis:', err);
-      // Fallback heuristic if API request encounters an issue
-      generateFallbackMistakes(gameHistory, gameData.player_color);
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
-  function generateFallbackMistakes(history, playerColor) {
-    const mistakes = [];
-    history.forEach((move, index) => {
-      const isPlayerMove =
-        (playerColor === 'white' && move.color === 'w') ||
-        (playerColor === 'black' && move.color === 'b');
-
-      if (!isPlayerMove) return;
-
-      if (index === 11 || (index % 14 === 0 && index > 6)) {
-        mistakes.push({
-          moveIndex: index,
-          moveSan: move.san,
-          moveNumber: Math.floor(index / 2) + 1,
-          type: 'tactical',
-          evalDrop: 2.8,
-          theme: 'Fork',
-          fenBefore: move.before,
-          fenAfter: move.after,
-          bestMoveSan: 'Nxd5',
-          explanation: 'Overlooked a multi-piece knight fork on c7, losing material.',
-          betterMoveExplanation: 'Recapturing in the center maintains initiative and guards against tactical forks.',
-        });
+      console.warn('Engine analysis failed:', err);
+      if (loadedId.current === id) {
+        addToast({ type: 'error', message: err.message || 'Engine analysis failed. Try Re-analyze Game.' });
       }
-    });
-    setIdentifiedMistakes(mistakes);
+    } finally {
+      if (loadedId.current === id) setAnalyzing(false);
+    }
   }
 
   function goToMove(index) {
@@ -259,12 +227,12 @@ export default function GameAnalysis() {
           {analyzing ? (
             <span className="badge" style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--accent-primary)', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <RefreshCw size={14} className="animate-spin" />
-              Stockfish 19 Analyzing...
+              Analysing this game...
             </span>
           ) : (
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => runEngineAnalysis()}
+              onClick={() => runEngineAnalysis(selectedGame, true)}
               disabled={analyzing}
               style={{ gap: '6px' }}
             >
@@ -283,8 +251,9 @@ export default function GameAnalysis() {
       {analysisResult?.summary && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: 'var(--space-lg)' }}>
           <div className="card" style={{ padding: '14px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
-              Tactical Blunders
+            <div className="sum-title">
+              <span>Tactical Blunders</span>
+              <Tip label="About tactical blunders">Moves that dropped more than 2 pawns of advantage, usually by missing a capture, fork, pin or checkmate. These cost the most, so fix them first.</Tip>
             </div>
             <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--accent-danger)', marginTop: '2px' }}>
               {analysisResult.summary.tactical || 0}
@@ -293,8 +262,9 @@ export default function GameAnalysis() {
           </div>
 
           <div className="card" style={{ padding: '14px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
-              Positional Errors
+            <div className="sum-title">
+              <span>Positional Errors</span>
+              <Tip label="About positional errors">Moves that lost 1 to 2 pawns of advantage without an immediate tactic: weak pawn structure, badly placed pieces or giving up key squares.</Tip>
             </div>
             <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--positional-color)', marginTop: '2px' }}>
               {analysisResult.summary.positional || 0}
@@ -303,8 +273,9 @@ export default function GameAnalysis() {
           </div>
 
           <div className="card" style={{ padding: '14px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
-              Strategic Errors
+            <div className="sum-title">
+              <span>Strategic Errors</span>
+              <Tip label="About strategic errors">Smaller slips of 0.4 to 1 pawn where the plan was off, such as trading the wrong pieces or ignoring the long-term position.</Tip>
             </div>
             <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--strategic-color)', marginTop: '2px' }}>
               {analysisResult.summary.strategic || 0}
@@ -313,8 +284,9 @@ export default function GameAnalysis() {
           </div>
 
           <div className="card" style={{ padding: '14px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
-              Engine Assessment
+            <div className="sum-title">
+              <span>Engine Assessment</span>
+              <Tip label="About engine assessment">A short verdict on the whole game, based on how many mistakes the engine found and how big they were.</Tip>
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginTop: '4px', lineHeight: 1.35 }}>
               {analysisResult.summary.overallAssessment || 'Analysis in progress...'}
@@ -370,6 +342,7 @@ export default function GameAnalysis() {
               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <BarChart2 size={16} style={{ color: 'var(--accent-primary)' }} />
                 <span>Engine Evaluation:</span>
+                <Tip label="About engine evaluation" align="left">The engine's score for the position in pawns. Positive means White is better, negative means Black is better. +1.00 is roughly one extra pawn. The bar beside the board shows the same thing.</Tip>
                 <strong style={{ color: rawScore >= 0 ? 'var(--text-primary)' : 'var(--accent-danger)' }}>
                   {currentEval?.mate ? `Mate in ${currentEval.mate}` : `${rawScore > 0 ? '+' : ''}${rawScore.toFixed(2)}`}
                 </strong>
@@ -428,6 +401,7 @@ export default function GameAnalysis() {
           {/* Move-by-move verdict: a light per move plus the best continuation */}
           {Object.keys(moveEvals).length > 0 && (
             <div className="card move-verdict">
+              <Tip className="move-verdict-tip" label="About move ratings">Each move gets a colour. Green: best, excellent or good. Amber: an inaccuracy that gave away a little. Red: a mistake or blunder that cost real winning chances. The percentage is how much your chance of winning dropped.</Tip>
               {currentMoveIndex === -1 ? (
                 <div className="move-verdict-head">
                   <span className="move-light" style={{ background: 'var(--text-tertiary)' }} />
@@ -525,36 +499,11 @@ export default function GameAnalysis() {
                 <Info size={18} style={{ color: 'var(--accent-primary)' }} />
                 <span>
                   {identifiedMistakes.length > 0
-                    ? `Click any highlighted mistake badge below to inspect what went wrong.`
+                    ? `Open “Mistakes in this game” below to jump to what went wrong.`
                     : analyzing
                     ? 'Stockfish 19 is analyzing your moves to detect strategic, positional, and tactical inaccuracies...'
                     : 'Select a move or review detected errors below.'}
                 </span>
-              </div>
-            </div>
-          )}
-
-          {/* Detected Mistakes Quick Bar */}
-          {identifiedMistakes.length > 0 && (
-            <div className="card">
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <AlertTriangle size={16} style={{ color: 'var(--strategic-color)' }} />
-                <span>Mistakes in this game ({identifiedMistakes.length})</span>
-              </h3>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {identifiedMistakes.map((m) => (
-                  <button
-                    key={m.moveIndex}
-                    onClick={() => goToMove(m.moveIndex)}
-                    className={`btn btn-sm btn-secondary${currentMoveIndex === m.moveIndex ? ' move-chip-active' : ''}`}
-                    style={{ fontSize: '0.8rem', gap: '6px' }}
-                  >
-                    <span>Move {m.moveNumber}. {m.moveSan}</span>
-                    <span className={`badge badge-${m.type}`} style={{ padding: '1px 6px', fontSize: '0.7rem' }}>
-                      {m.theme || m.type}
-                    </span>
-                  </button>
-                ))}
               </div>
             </div>
           )}
@@ -633,6 +582,43 @@ export default function GameAnalysis() {
             </div>
           </div>
 
+
+          {/* Detected mistakes: collapsed by default so the move list stays in reach */}
+          {identifiedMistakes.length > 0 && (
+            <div className="card mistakes-card">
+              <div className="mistakes-head">
+                <button
+                  type="button"
+                  className="mistakes-toggle"
+                  onClick={() => setMistakesOpen(o => !o)}
+                  aria-expanded={mistakesOpen}
+                  aria-controls="mistakes-list"
+                >
+                  <AlertTriangle size={16} style={{ color: 'var(--strategic-color)' }} />
+                  <span>Mistakes in this game ({identifiedMistakes.length})</span>
+                  <ChevronDown size={18} className={`mistakes-chevron${mistakesOpen ? ' open' : ''}`} />
+                </button>
+                <Tip label="About mistakes in this game">Every move where the engine found a clearly better option. Pick one to jump to it on the board and read what went wrong.</Tip>
+              </div>
+              {mistakesOpen && (
+                <div id="mistakes-list" className="mistakes-list">
+                  {identifiedMistakes.map((m) => (
+                    <button
+                      key={m.moveIndex}
+                      onClick={() => goToMove(m.moveIndex)}
+                      className={`btn btn-sm btn-secondary${currentMoveIndex === m.moveIndex ? ' move-chip-active' : ''}`}
+                      style={{ fontSize: '0.8rem', gap: '6px' }}
+                    >
+                      <span>Move {m.moveNumber}. {m.moveSan}</span>
+                      <span className={`badge badge-${m.type}`} style={{ padding: '1px 6px', fontSize: '0.7rem' }}>
+                        {m.theme || m.type}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
