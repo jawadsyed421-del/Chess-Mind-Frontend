@@ -11,7 +11,8 @@ const ANALYSIS_DEPTH = 12;
 const cacheKey = id => `chessmind_analysis_${id}`;
 
 const inflight = new Map(); // game id -> Promise of the stored result
-const failed = new Set();   // games the engine could not analyse; not retried until reload
+const failed = new Map();   // game id -> time of the last failure; retried after RETRY_MS
+const RETRY_MS = 45000;     // the server may be asleep or redeploying, so try again shortly
 let running = false;
 
 export function getCachedAnalysis(id) {
@@ -61,7 +62,8 @@ export function analyseGame(game, { force = false } = {}) {
   return job;
 }
 
-const needsAnalysis = g => g.pgn && !failed.has(g.platform_game_id) && !getCachedAnalysis(g.platform_game_id);
+const recentlyFailed = id => Date.now() - (failed.get(id) || 0) < RETRY_MS;
+const needsAnalysis = g => g.pgn && !recentlyFailed(g.platform_game_id) && !getCachedAnalysis(g.platform_game_id);
 
 // Works through the newest unanalysed games one at a time. Safe to call repeatedly.
 export async function startBackgroundAnalysis() {
@@ -87,7 +89,7 @@ export async function startBackgroundAnalysis() {
         misses = 0;
       } catch (e) {
         console.warn('Background analysis failed for', next.platform_game_id, e.message);
-        failed.add(next.platform_game_id);
+        failed.set(next.platform_game_id, Date.now());
         if (++misses >= 3) break; // server is probably down; stop instead of hammering it
       }
       done += 1;
@@ -95,5 +97,7 @@ export async function startBackgroundAnalysis() {
   } finally {
     running = false;
     useStore.getState().setBgAnalysis({ running: false, done, total, currentId: null });
+    // Anything that failed (server asleep, restarting) gets another go automatically
+    if (failed.size && currentUserId() === userId) setTimeout(startBackgroundAnalysis, RETRY_MS);
   }
 }
