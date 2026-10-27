@@ -277,86 +277,116 @@ function AccuracyChart({ points, onOpen, average, oppAverage }) {
   );
 }
 
-// Board heatmap: where your mistakes land, or where your pieces go.
+// One heat board. `flip` shows it from Black's side, the way those games were played.
+function HeatBoard({ cells, max, flip, describe, hover, setHover }) {
+  const ranks = flip ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
+  const files = flip ? [...FILES].reverse() : [...FILES];
+  return (
+    <div className="heat-board-wrap st-heat">
+      <div className="heat-ranks">{ranks.map(r => <span key={r}>{r}</span>)}</div>
+      <div className="heat-board" onMouseLeave={() => setHover(null)}>
+        {ranks.flatMap(rank => files.map(f => {
+          const sq = `${f}${rank}`;
+          const light = (FILES.indexOf(f) + rank) % 2 === 1;
+          const level = max ? (cells[sq]?.w || 0) / max : 0;
+          return (
+            <div key={sq} className={`heat-sq ${light ? 'light' : 'dark'}${hover === sq ? ' active' : ''}`} onMouseEnter={() => setHover(sq)} onClick={() => setHover(sq)} title={`${sq}: ${describe(sq, cells)}`}>
+              <span style={{ opacity: level ? 0.15 + level * 0.75 : 0 }} />
+            </div>
+          );
+        }))}
+      </div>
+      <div className="heat-files">{files.map(f => <span key={f}>{f}</span>)}</div>
+    </div>
+  );
+}
+
+// Board heatmaps: where your mistakes land (or where your pieces go), separately for the games
+// you played as White and as Black.
 function Heatmap({ games }) {
   const [mode, setMode] = useState('Mistakes');
-  const [hover, setHover] = useState(null);
+  const [hover, setHover] = useState({ white: null, black: null });
   const mistakesMode = mode === 'Mistakes';
 
   const data = useMemo(() => {
-    const cells = {};
-    const add = (sq, w, drop) => {
+    const sides = { white: { cells: {}, games: 0, total: 0 }, black: { cells: {}, games: 0, total: 0 } };
+    const add = (side, sq, w, drop) => {
       if (!sq) return;
-      const c = (cells[sq] = cells[sq] || { n: 0, w: 0, drop: 0 });
-      c.n++; c.w += w; c.drop += drop || 0;
+      const c = (side.cells[sq] = side.cells[sq] || { n: 0, w: 0, drop: 0 });
+      c.n++; c.w += w; c.drop += drop || 0; side.total++;
     };
-    let source = 0;
-
-    if (mistakesMode) {
-      for (const g of games) {
+    for (const g of games) {
+      const side = sides[g.player_color === 'black' ? 'black' : 'white'];
+      if (mistakesMode) {
         const mistakes = readMistakes(g);
         if (!mistakes) continue;
-        source++;
-        mistakes.forEach(m => add(sanTarget(m.moveSan, m.color), Math.min(m.evalDrop || 1, 5), m.evalDrop));
-      }
-    } else {
-      for (const g of games) {
-        if (!g.pgn) continue;
+        side.games++;
+        mistakes.forEach(m => add(side, sanTarget(m.moveSan, m.color), Math.min(m.evalDrop || 1, 5), m.evalDrop));
+      } else if (g.pgn) {
         try {
           const chess = new Chess();
           chess.loadPgn(g.pgn);
           const mine = g.player_color === 'black' ? 'b' : 'w';
-          source++;
-          chess.history({ verbose: true }).filter(m => m.color === mine).forEach(m => add(m.to, 1));
+          side.games++;
+          chess.history({ verbose: true }).filter(m => m.color === mine).forEach(m => add(side, m.to, 1));
         } catch { /* skip unparsable PGN */ }
       }
     }
-    const max = Math.max(0, ...Object.values(cells).map(c => c.w));
-    const top = Object.entries(cells).sort((a, b) => b[1].w - a[1].w).slice(0, 3);
-    return { cells, max, top, source };
+    for (const side of Object.values(sides)) {
+      side.max = Math.max(0, ...Object.values(side.cells).map(c => c.w));
+      side.top = Object.entries(side.cells).sort((x, y) => y[1].w - x[1].w).slice(0, 3).map(([sq]) => sq);
+    }
+    return sides;
   }, [games, mistakesMode]);
 
-  const describe = sq => {
-    const c = data.cells[sq];
+  const describe = (sq, cells) => {
+    const c = cells[sq];
     if (!c) return mistakesMode ? 'No mistakes on this square.' : 'You never moved a piece here.';
     return mistakesMode
       ? `${c.n} mistake${c.n > 1 ? 's' : ''} · average loss ${(c.drop / c.n).toFixed(1)} pawns`
       : `${c.n} move${c.n > 1 ? 's' : ''} landed here`;
   };
 
-  const topNames = data.top.map(([sq]) => sq);
-  const sub = data.source === 0 ? null : (mistakesMode
-    ? `Most of your mistakes land on ${topNames.length > 1 ? `${topNames.slice(0, -1).map(s => s).join(', ')} and ${topNames[topNames.length - 1]}` : topNames[0]}. Squares are weighted by how much each cost you.`
-    : `Squares your pieces moved to most often: ${topNames.join(', ')}.`);
+  const list = sqs => (sqs.length > 1 ? `${sqs.slice(0, -1).join(', ')} and ${sqs[sqs.length - 1]}` : sqs[0]);
+  const sourceTotal = data.white.games + data.black.games;
+  const parts = ['white', 'black'].filter(k => data[k].top.length).map(k => `As ${k === 'white' ? 'White' : 'Black'}, ${mistakesMode ? 'most of your mistakes land on' : 'your pieces move to'} ${list(data[k].top)}`);
+  const sub = sourceTotal === 0 ? null : `${parts.join('. ')}.${mistakesMode ? ' Squares are weighted by how much each mistake cost you.' : ''}`;
 
   return (
     <Card
       title={mistakesMode ? 'Where your mistakes happen' : 'Where your pieces go'}
+      className="st-full"
       info={sub}
       right={<Segmented small options={['Mistakes', 'Piece activity']} value={mode} onChange={setMode} />}
     >
-      {data.source === 0 ? (
+      {sourceTotal === 0 ? (
         <p className="st-empty">{mistakesMode ? 'Analyse a game to start building your mistake map.' : 'No games with move data yet.'}</p>
       ) : (
         <>
-          <div className="heat-board-wrap st-heat">
-            <div className="heat-ranks">{[8, 7, 6, 5, 4, 3, 2, 1].map(r => <span key={r}>{r}</span>)}</div>
-            <div className="heat-board" onMouseLeave={() => setHover(null)}>
-              {[8, 7, 6, 5, 4, 3, 2, 1].flatMap(rank => [...FILES].map((f, fi) => {
-                const sq = `${f}${rank}`;
-                const light = (fi + rank) % 2 === 1;
-                const level = data.max ? (data.cells[sq]?.w || 0) / data.max : 0;
-                return (
-                  <div key={sq} className={`heat-sq ${light ? 'light' : 'dark'}${hover === sq ? ' active' : ''}`} onMouseEnter={() => setHover(sq)} onClick={() => setHover(sq)} title={`${sq}: ${describe(sq)}`}>
-                    <span style={{ opacity: level ? 0.15 + level * 0.75 : 0 }} />
+          <div className="st-heat-pair">
+            {['white', 'black'].map(k => {
+              const side = data[k];
+              return (
+                <div key={k} className="st-heat-side">
+                  <div className="st-heat-title">
+                    <span className={`home-colour ${k}`} />
+                    <b>As {k === 'white' ? 'White' : 'Black'}</b>
+                    <span className="st-note">{side.games ? `${side.total} ${mistakesMode ? `mistake${side.total === 1 ? '' : 's'}` : `move${side.total === 1 ? '' : 's'}`} in ${side.games} game${side.games === 1 ? '' : 's'}` : 'no games yet'}</span>
                   </div>
-                );
-              }))}
-            </div>
-            <div className="heat-files">{[...FILES].map(f => <span key={f}>{f}</span>)}</div>
+                  {side.games ? (
+                    <>
+                      <HeatBoard cells={side.cells} max={side.max} flip={k === 'black'} describe={describe} hover={hover[k]} setHover={sq => setHover(h => ({ ...h, [k]: sq }))} />
+                      <span className="st-note">{hover[k] ? `${hover[k]}: ${describe(hover[k], side.cells)}` : 'Tap or hover a square'}</span>
+                    </>
+                  ) : (
+                    <p className="st-empty">{mistakesMode ? `No analysed games as ${k === 'white' ? 'White' : 'Black'} yet.` : `No games as ${k === 'white' ? 'White' : 'Black'} yet.`}</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <div className="st-heat-foot">
-            <span className="st-note">{hover ? `${hover}: ${describe(hover)}` : 'Tap or hover a square'}</span>
+            <span className="st-note">The Black board is shown from Black's side, as you played it.</span>
             <div className="heat-scale"><span>Fewer</span><i /><span>More</span></div>
           </div>
         </>
@@ -650,13 +680,14 @@ export default function Stats() {
 
           <Breakdown games={filtered} />
 
+          <Heatmap games={filtered} />
+
           <div className="st-two top">
             <div className="st-stack">
               <Openings games={filtered} onOpen={openGame} />
               <ThisWeek games={filtered} />
             </div>
             <div className="st-stack">
-              <Heatmap games={filtered} />
               <PhaseCard games={filtered} />
             </div>
           </div>

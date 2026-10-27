@@ -18,6 +18,7 @@ export default function InteractiveBoard({
   arrows = [],
   customSquareStyles = {},
   boardWidth = null,
+  showLegalMoves = true, // Training turns this off so the player has to see the moves themselves
 }) {
   const [game, setGame] = useState(() => {
     try {
@@ -116,7 +117,7 @@ export default function InteractiveBoard({
     if (piece && piece.color === game.turn()) {
       setMoveFrom(square);
       const legalMoves = game.moves({ square, verbose: true });
-      setPossibleMoves(legalMoves.map(m => m.to));
+      setPossibleMoves(showLegalMoves ? legalMoves.map(m => m.to) : []);
     } else {
       setMoveFrom('');
       setPossibleMoves([]);
