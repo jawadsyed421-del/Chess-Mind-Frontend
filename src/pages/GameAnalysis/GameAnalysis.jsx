@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { cleanOpening, classifyMove } from '../../utils/gameInsights';
 import { analyseGame, getCachedAnalysis } from '../../services/backgroundAnalysis';
 import Tip from '../../components/Tip/Tip';
+import MoveExplanation from './MoveExplanation';
+import { explainGameMove, describeMove } from '../../utils/moveExplainer';
 import { Chess } from 'chess.js';
 import InteractiveBoard from '../../components/Chessboard/InteractiveBoard';
 import api from '../../services/api';
@@ -42,6 +44,7 @@ export default function GameAnalysis() {
   const [identifiedMistakes, setIdentifiedMistakes] = useState([]);
   const [moveEvals, setMoveEvals] = useState({});
   const [mistakesOpen, setMistakesOpen] = useState(false);
+  const [showBetter, setShowBetter] = useState(false); // board shows the position before the move, with the better move drawn
   const loadedId = useRef(null); // game currently shown; background updates to `games` must not reset it
 
   // Keyboard navigation for moves
@@ -134,6 +137,7 @@ export default function GameAnalysis() {
           evalAfter: m.evalAfter,
           evalBefore: m.evalBefore,
           bestMoveSan: m.bestMoveSan,
+          pv: m.pvSan,
           mate: m.mate,
           color: m.color,
         };
@@ -166,6 +170,7 @@ export default function GameAnalysis() {
 
   function goToMove(index) {
     if (index < -1 || index >= gameHistory.length) return;
+    setShowBetter(false);
     setCurrentMoveIndex(index);
 
     if (index === -1) {
@@ -181,6 +186,44 @@ export default function GameAnalysis() {
   const currentRating = currentMoveIndex >= 0 ? rateMove(currentMoveIndex) : null;
   const nextBest = moveEvals[currentMoveIndex + 1]?.bestMoveSan;
   const TONE_COLOR = { good: 'var(--accent-success)', warn: 'var(--accent-warning)', bad: 'var(--accent-danger)' };
+
+  // Plain-English explanation of the move on the board, and of the best move to play next
+  const playerIsWhite = selectedGame?.player_color !== 'black';
+  const currentMove = currentMoveIndex >= 0 ? gameHistory[currentMoveIndex] : null;
+  const explain = useMemo(() => {
+    if (!currentMove) return null;
+    return explainGameMove({
+      fenBefore: currentMove.before,
+      san: currentMove.san,
+      ev: currentEval,
+      rating: currentRating,
+      replyBest: nextBest,
+      pv: currentEval?.pv,
+      you: (currentMove.color === 'w') === playerIsWhite,
+    });
+  }, [currentMoveIndex, gameHistory, moveEvals, playerIsWhite]);
+  const ahead = useMemo(() => {
+    if (!nextBest || !currentFen || explain?.reply) return null; // the strongest reply already covers it
+    const nextColor = currentFen.split(' ')[1];
+    const d = describeMove(currentFen, nextBest, { you: (nextColor === 'w') === playerIsWhite });
+    return d ? { san: nextBest, points: d.good.slice(0, 3) } : null;
+  }, [currentFen, nextBest, playerIsWhite, explain]);
+
+  // With "show the better move" on, the board rewinds one move and draws both moves as arrows
+  const boardFen = showBetter && currentMove ? currentMove.before : currentFen;
+  const arrows = useMemo(() => {
+    if (!showBetter || !currentMove || !currentEval?.bestMoveSan) return [];
+    try {
+      const c = new Chess(currentMove.before);
+      const best = c.move(currentEval.bestMoveSan);
+      return [
+        { startSquare: currentMove.from, endSquare: currentMove.to, color: 'rgba(228, 96, 77, 0.85)' },
+        { startSquare: best.from, endSquare: best.to, color: 'rgba(143, 211, 160, 0.9)' },
+      ];
+    } catch {
+      return [];
+    }
+  }, [showBetter, currentMove, currentEval]);
 
   // Calculate eval bar visual height / percentage (-5 to +5 range mapped to 0-100%)
   const rawScore = currentEval?.evalAfter ?? 0;
@@ -329,7 +372,8 @@ export default function GameAnalysis() {
             {/* Chessboard */}
             <div style={{ flex: 1 }}>
               <InteractiveBoard
-                fen={currentFen}
+                fen={boardFen}
+                arrows={arrows}
                 orientation={selectedGame.player_color || 'white'}
                 interactive={false}
               />
@@ -442,6 +486,11 @@ export default function GameAnalysis() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Detailed explanation of the move */}
+          {(explain || ahead) && (
+            <MoveExplanation explain={explain} ahead={ahead} showBetter={showBetter} onToggleBetter={() => setShowBetter(v => !v)} />
           )}
 
           {/* Active Mistake Coach Card */}

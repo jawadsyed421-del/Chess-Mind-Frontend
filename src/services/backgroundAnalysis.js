@@ -101,3 +101,26 @@ export async function startBackgroundAnalysis() {
     if (failed.size && currentUserId() === userId) setTimeout(startBackgroundAnalysis, RETRY_MS);
   }
 }
+
+// Training puzzles built from the player's own analysed games: the position before each costly mistake,
+// with the engine's better move as the answer. Biggest mistakes first.
+export function collectMistakePuzzles(games, max = 8) {
+  const out = [];
+  for (const g of games || []) {
+    const mistakes = getCachedAnalysis(g.platform_game_id)?.analysis?.mistakes || [];
+    for (const m of mistakes) {
+      if (!m.fenBefore || !m.bestMoveSan || (m.evalDrop || 0) < 1) continue;
+      out.push({
+        id: `mine-${g.platform_game_id}-${m.moveIndex}`,
+        fen: m.fenBefore,
+        line: [m.bestMoveSan],
+        theme: m.theme || 'Your mistake',
+        type: (m.type || 'tactical').toLowerCase(),
+        source: `Your game vs ${g.opponent || 'an opponent'}, move ${m.moveNumber}`,
+        personal: true,
+        drop: m.evalDrop,
+      });
+    }
+  }
+  return out.sort((x, y) => y.drop - x.drop).slice(0, max);
+}
